@@ -1,0 +1,28 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function checking authentication and verified email
+    function isVerified() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    // 1. User private storage directory: strictly owned by request.auth.uid and verified
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isVerified() && request.auth.uid == userId
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // 2. Public website assets and media library
+    match /{allPaths=**} {
+      // Public read for website assets and media library
+      allow read: if true;
+
+      // Only administrators with verified email can upload or delete media files
+      // Restrict to images under 10MB
+      allow write: if isVerified() && (
+        request.auth.token.email == 'arabsafashion@gmail.com'
+      ) && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

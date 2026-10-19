@@ -1,0 +1,246 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Strict Email Verification check: required for all protected reads & writes
+    function isVerified() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Verified administrator check
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'arabsafashion@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Verified document owner check (must be signed in, email verified, and match UID)
+    function isOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    // User Profile Validation
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 128 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
+             (!('company' in data) || (data.company is string && data.company.size() <= 128)) &&
+             data.role in ['customer', 'admin'] &&
+             data.status in ['active', 'inactive'];
+    }
+
+    // Consultation Request Validation
+    function isValidConsultation(data) {
+      return data.clientName is string && data.clientName.size() > 0 && data.clientName.size() <= 128 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 128 &&
+             data.serviceInterest is string && data.serviceInterest.size() <= 100 &&
+             data.projectDescription is string && data.projectDescription.size() <= 4000 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
+             (!('companyName' in data) || (data.companyName is string && data.companyName.size() <= 128)) &&
+             (!('industry' in data) || (data.industry is string && data.industry.size() <= 100)) &&
+             (!('estimatedTimeline' in data) || (data.estimatedTimeline is string && data.estimatedTimeline.size() <= 100)) &&
+             (!('preferredDate' in data) || (data.preferredDate is string && data.preferredDate.size() <= 64)) &&
+             (!('userId' in data) || (data.userId is string && data.userId.size() <= 128));
+    }
+
+    // Contact Message Validation
+    function isValidContact(data) {
+      return data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 128 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 128 &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() <= 200 &&
+             data.message is string && data.message.size() > 0 && data.message.size() <= 4000 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 50));
+    }
+
+    // Users Collection: Enforce Email Verification and Ownership
+    match /users/{userId} {
+      // 1. Reading private profile requires verified email and ownership (or verified admin)
+      allow get: if isOwner(userId) || isAdmin();
+
+      // 2. Listing is strictly restricted to verified administrators
+      allow list: if isAdmin();
+
+      // 3. User creation during registration: allowed for authenticated caller creating own basic profile
+      allow create: if (
+        request.auth != null &&
+        request.auth.uid == userId &&
+        isValidUser(incoming()) &&
+        incoming().uid == request.auth.uid &&
+        incoming().role == 'customer' &&
+        incoming().status == 'active' &&
+        incoming().email == request.auth.token.email
+      ) || (
+        isAdmin() && isValidUser(incoming())
+      );
+
+      // 4. Updating profile requires verified email and ownership (or verified admin)
+      allow update: if (
+        isAdmin() && isValidUser(incoming()) && incoming().uid == existing().uid
+      ) || (
+        isOwner(userId) &&
+        isValidUser(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().uid == request.auth.uid &&
+        incoming().role == existing().role &&
+        incoming().status == existing().status &&
+        incoming().email == existing().email &&
+        incoming().emailVerified == existing().emailVerified &&
+        (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'company', 'updatedAt'])
+      );
+
+      // 5. Deletion restricted to verified administrator
+      allow delete: if isAdmin();
+
+      // 6. Subcollections under user profile require verified email and ownership (or verified admin)
+      match /{allSubcollections=**} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Admins Collection
+    match /admins/{adminId} {
+      allow get, list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Site Settings (Public Read, Admin Write)
+    match /siteSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Navigation Items (Public Read, Admin Write)
+    match /navigationItems/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Page Sections (Public Read, Admin Write)
+    match /pageSections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Services (Public Read Published, Admin Full Access)
+    match /services/{serviceId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Industries (Public Read Published, Admin Full Access)
+    match /industries/{industryId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Articles / Blog Insights (Public Read Published, Admin Full Access)
+    match /articles/{articleId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Projects & Portfolio (Public Read Published, Admin Full Access)
+    match /projects/{projectId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Skills & Technologies (Public Read, Admin Write)
+    match /skills/{skillId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Work Experience (Public Read, Admin Write)
+    match /experience/{expId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Education (Public Read, Admin Write)
+    match /education/{eduId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Certifications & Training (Public Read, Admin Write)
+    match /certifications/{certId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Resume / CV Data (Public Read, Admin Write)
+    match /resume/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Executive Letter Templates & Records (Admin Only)
+    match /executiveLetters/{letterId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Media Library (Public Read, Admin Write)
+    match /media/{mediaId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Testimonials (Public Read Published, Admin Full Access)
+    match /testimonials/{testimonialId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Consultation Requests: Reading requires verified email + ownership (or admin)
+    match /consultationRequests/{requestId} {
+      allow create: if isValidConsultation(incoming()) && (
+        !('userId' in incoming()) ||
+        incoming().userId == null ||
+        (isSignedIn() && incoming().userId == request.auth.uid)
+      );
+      allow get: if isAdmin() || (isVerified() && resource.data.userId == request.auth.uid);
+      allow list: if isAdmin() || (isVerified() && resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // Contact Messages: Public Create, Admin Read/Manage Only
+    match /contactMessages/{messageId} {
+      allow create: if isValidContact(incoming());
+      allow get, list, update, delete: if isAdmin();
+    }
+
+    // Audit Logs: Append-Only by Admin, Read by Admin, Immutable
+    match /auditLogs/{logId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

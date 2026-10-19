@@ -1,0 +1,339 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role and account status",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["customer", "admin"], "maxLength": 20 },
+        "status": { "type": "string", "enum": ["active", "inactive"], "maxLength": 20 },
+        "emailVerified": { "type": "boolean" },
+        "phone": { "type": "string", "maxLength": 50 },
+        "company": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["uid", "email", "role", "status"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized administrator mapping",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "maxLength": 20 },
+        "addedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["email", "role"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global website configuration, branding, theme, colors, typography, hero positioning, and contact",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string", "maxLength": 200 },
+        "tagline": { "type": "string", "maxLength": 300 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 128 },
+        "address": { "type": "string", "maxLength": 300 },
+        "heroTitle": { "type": "string", "maxLength": 300 },
+        "heroSubtitle": { "type": "string", "maxLength": 600 },
+        "heroImageUrl": { "type": "string", "maxLength": 1000 },
+        "aboutSummary": { "type": "string", "maxLength": 3000 },
+        "founderName": { "type": "string", "maxLength": 128 },
+        "founderTitle": { "type": "string", "maxLength": 128 },
+        "founderBio": { "type": "string", "maxLength": 4000 },
+        "founderImageUrl": { "type": "string", "maxLength": 1000 },
+        "vision": { "type": "string", "maxLength": 1000 },
+        "mission": { "type": "string", "maxLength": 1000 },
+        "methodology": { "type": "string", "maxLength": 3000 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      }
+    },
+    "ProjectItem": {
+      "title": "ProjectItem",
+      "description": "Executive portfolio project and case study",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "slug": { "type": "string", "maxLength": 200 },
+        "client": { "type": "string", "maxLength": 150 },
+        "summary": { "type": "string", "maxLength": 1000 },
+        "description": { "type": "string", "maxLength": 10000 },
+        "impactMetrics": { "type": "string", "maxLength": 500 },
+        "coverImageUrl": { "type": "string", "maxLength": 1000 },
+        "order": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "published"], "maxLength": 20 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["title", "slug", "summary", "status"]
+    },
+    "SkillItem": {
+      "title": "SkillItem",
+      "description": "Executive skill and technology capability",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 100 },
+        "proficiency": { "type": "number" },
+        "icon": { "type": "string", "maxLength": 50 },
+        "order": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "published"], "maxLength": 20 }
+      },
+      "required": ["name", "category"]
+    },
+    "ExperienceItem": {
+      "title": "ExperienceItem",
+      "description": "Executive work history and consulting engagements",
+      "type": "object",
+      "properties": {
+        "company": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "maxLength": 150 },
+        "period": { "type": "string", "maxLength": 100 },
+        "location": { "type": "string", "maxLength": 100 },
+        "summary": { "type": "string", "maxLength": 2000 },
+        "order": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "published"], "maxLength": 20 }
+      },
+      "required": ["company", "role", "period"]
+    },
+    "EducationItem": {
+      "title": "EducationItem",
+      "description": "Academic qualifications and degrees",
+      "type": "object",
+      "properties": {
+        "institution": { "type": "string", "maxLength": 200 },
+        "degree": { "type": "string", "maxLength": 200 },
+        "field": { "type": "string", "maxLength": 200 },
+        "graduationYear": { "type": "string", "maxLength": 50 },
+        "order": { "type": "number" }
+      },
+      "required": ["institution", "degree"]
+    },
+    "CertificationItem": {
+      "title": "CertificationItem",
+      "description": "Professional certifications and training credentials",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "issuer": { "type": "string", "maxLength": 200 },
+        "issueDate": { "type": "string", "maxLength": 50 },
+        "order": { "type": "number" }
+      },
+      "required": ["title", "issuer"]
+    },
+    "PageSectionItem": {
+      "title": "PageSectionItem",
+      "description": "Configurable dynamic section for the universal section builder",
+      "type": "object",
+      "properties": {
+        "pageId": { "type": "string", "maxLength": 100 },
+        "sectionId": { "type": "string", "maxLength": 100 },
+        "sectionType": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 200 },
+        "subtitle": { "type": "string", "maxLength": 500 },
+        "body": { "type": "string", "maxLength": 5000 },
+        "imageUrl": { "type": "string", "maxLength": 1000 },
+        "buttonText": { "type": "string", "maxLength": 100 },
+        "buttonUrl": { "type": "string", "maxLength": 500 },
+        "backgroundColor": { "type": "string", "maxLength": 50 },
+        "displayOrder": { "type": "number" },
+        "isVisible": { "type": "boolean" },
+        "status": { "type": "string", "maxLength": 20 }
+      },
+      "required": ["pageId", "sectionId", "title"]
+    },
+    "NavigationItem": {
+      "title": "NavigationItem",
+      "description": "Custom header navigation item",
+      "type": "object",
+      "properties": {
+        "label": { "type": "string", "maxLength": 100 },
+        "page": { "type": "string", "maxLength": 100 },
+        "url": { "type": "string", "maxLength": 500 },
+        "isExternal": { "type": "boolean" },
+        "order": { "type": "number" },
+        "isVisible": { "type": "boolean" },
+        "isHighlighted": { "type": "boolean" }
+      },
+      "required": ["label", "page"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Consulting service offering",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "slug": { "type": "string", "maxLength": 200 },
+        "summary": { "type": "string", "maxLength": 500 },
+        "description": { "type": "string", "maxLength": 5000 },
+        "coverImageUrl": { "type": "string", "maxLength": 1000 },
+        "icon": { "type": "string", "maxLength": 50 },
+        "order": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "published"], "maxLength": 20 }
+      },
+      "required": ["title", "slug", "summary", "status"]
+    },
+    "Industry": {
+      "title": "Industry",
+      "description": "Industry sector served by the firm",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "slug": { "type": "string", "maxLength": 200 },
+        "summary": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["draft", "published"], "maxLength": 20 }
+      },
+      "required": ["title", "slug", "summary", "status"]
+    },
+    "Article": {
+      "title": "Article",
+      "description": "Thought leadership blog or insight article",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 300 },
+        "slug": { "type": "string", "maxLength": 300 },
+        "summary": { "type": "string", "maxLength": 1000 },
+        "content": { "type": "string", "maxLength": 50000 },
+        "status": { "type": "string", "enum": ["draft", "published"], "maxLength": 20 }
+      },
+      "required": ["title", "slug", "summary", "content", "status"]
+    },
+    "MediaItem": {
+      "title": "MediaItem",
+      "description": "Image asset in the media library",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "altText": { "type": "string", "maxLength": 300 },
+        "url": { "type": "string", "maxLength": 2000 }
+      },
+      "required": ["title", "url", "altText"]
+    },
+    "Testimonial": {
+      "title": "Testimonial",
+      "description": "Client testimonial and endorsement",
+      "type": "object",
+      "properties": {
+        "clientName": { "type": "string", "maxLength": 128 },
+        "quote": { "type": "string", "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["draft", "published"], "maxLength": 20 }
+      },
+      "required": ["clientName", "quote", "status"]
+    },
+    "ConsultationRequest": {
+      "title": "ConsultationRequest",
+      "description": "Customer consultation request submission",
+      "type": "object",
+      "properties": {
+        "clientName": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "maxLength": 30 }
+      },
+      "required": ["clientName", "email", "status"]
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "Direct contact message inquiry",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "subject": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 4000 },
+        "status": { "type": "string", "maxLength": 30 }
+      },
+      "required": ["fullName", "email", "subject", "message", "status"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System and administrative action audit record",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string", "maxLength": 100 },
+        "entityType": { "type": "string", "maxLength": 100 },
+        "performedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["action", "entityType", "performedBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile with customer status"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Designated administrator permissions lookup"
+    },
+    "/siteSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Global website configuration, branding, hero, theme and contact"
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/ProjectItem" },
+      "description": "Portfolio projects and strategic case studies"
+    },
+    "/skills/{skillId}": {
+      "schema": { "$ref": "#/entities/SkillItem" },
+      "description": "Core competencies and strategic advisory tools"
+    },
+    "/experience/{expId}": {
+      "schema": { "$ref": "#/entities/ExperienceItem" },
+      "description": "Executive career and advisory track record"
+    },
+    "/education/{eduId}": {
+      "schema": { "$ref": "#/entities/EducationItem" },
+      "description": "Academic degrees and alma maters"
+    },
+    "/certifications/{certId}": {
+      "schema": { "$ref": "#/entities/CertificationItem" },
+      "description": "Verified certifications and credentials"
+    },
+    "/pageSections/{sectionId}": {
+      "schema": { "$ref": "#/entities/PageSectionItem" },
+      "description": "Dynamic section builder items"
+    },
+    "/navigationItems/{itemId}": {
+      "schema": { "$ref": "#/entities/NavigationItem" },
+      "description": "Customizable header navigation items"
+    },
+    "/services/{serviceId}": {
+      "schema": { "$ref": "#/entities/Service" },
+      "description": "Consulting service offerings"
+    },
+    "/industries/{industryId}": {
+      "schema": { "$ref": "#/entities/Industry" },
+      "description": "Target industry sectors"
+    },
+    "/articles/{articleId}": {
+      "schema": { "$ref": "#/entities/Article" },
+      "description": "Thought leadership insights and articles"
+    },
+    "/media/{mediaId}": {
+      "schema": { "$ref": "#/entities/MediaItem" },
+      "description": "Media library assets metadata"
+    },
+    "/testimonials/{testimonialId}": {
+      "schema": { "$ref": "#/entities/Testimonial" },
+      "description": "Client testimonials and reviews"
+    },
+    "/consultationRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/ConsultationRequest" },
+      "description": "Consultation inquiries submitted by clients"
+    },
+    "/contactMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/ContactMessage" },
+      "description": "Public contact messages submitted to the firm"
+    },
+    "/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Audit trail of administrative modifications"
+    }
+  }
+}
