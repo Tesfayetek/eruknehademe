@@ -1,5 +1,4 @@
 import React from 'react';
-import { NavigationPage, SiteSettings } from '../../types';
 import {
   MapPin,
   Phone,
@@ -12,18 +11,22 @@ import {
   Send,
   Facebook,
   Github,
+  ExternalLink,
 } from 'lucide-react';
+import { NavigationPage, SiteSettings, NavigationItem } from '../../types';
 
 interface FooterProps {
   onNavigate: (page: NavigationPage) => void;
   onOpenConsultation: () => void;
   settings?: SiteSettings;
+  navigationItems?: NavigationItem[];
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onNavigate,
   onOpenConsultation,
   settings,
+  navigationItems = [],
 }) => {
   const companyName = settings?.companyName || 'Erukneh Ademe';
   const tagline = settings?.tagline || 'Business Consulting';
@@ -146,42 +149,47 @@ export const Footer: React.FC<FooterProps> = ({
             </div>
           </div>
 
-          {/* Column 2: Navigation */}
+          {/* Column 2: Navigation (Dynamic from CMS) */}
           <div className="space-y-3">
             <h4 className="text-xs font-semibold text-white uppercase tracking-wider border-b border-slate-800 pb-2">
               Navigation
             </h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <button onClick={() => onNavigate('home')} className="hover:text-[#D5A13A] transition-colors">
-                  Home
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onNavigate('about')} className="hover:text-[#D5A13A] transition-colors">
-                  About Us & Founder
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onNavigate('services')} className="hover:text-[#D5A13A] transition-colors">
-                  Consulting Services
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onNavigate('industries')} className="hover:text-[#D5A13A] transition-colors">
-                  Industries Served
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onNavigate('portfolio')} className="hover:text-[#D5A13A] transition-colors">
-                  Projects & Case Studies
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onNavigate('resume')} className="hover:text-[#D5A13A] transition-colors">
-                  Executive CV / Resume
-                </button>
-              </li>
+              {(navigationItems.length > 0
+                ? navigationItems
+                    .filter((i) => (i.showInFooter || (!i.parentId && i.isVisible)) && i.enabled !== false)
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                : ([
+                    { id: '1', label: 'Home', page: 'home', order: 1, isVisible: true, showInFooter: true },
+                    { id: '2', label: 'About Us & Founder', page: 'about', order: 2, isVisible: true, showInFooter: true },
+                    { id: '3', label: 'Consulting Services', page: 'services', order: 3, isVisible: true, showInFooter: true },
+                    { id: '4', label: 'Industries Served', page: 'industries', order: 4, isVisible: true, showInFooter: true },
+                    { id: '5', label: 'Projects & Case Studies', page: 'portfolio', order: 5, isVisible: true, showInFooter: true },
+                    { id: '6', label: 'Executive CV / Resume', page: 'resume', order: 6, isVisible: true, showInFooter: true },
+                    { id: '7', label: 'Contact Us', page: 'contact', order: 7, isVisible: true, showInFooter: true },
+                  ] as NavigationItem[])
+              ).map((item) => (
+                <li key={item.id}>
+                  {item.destinationType === 'external' || item.isExternal || item.openInNewTab ? (
+                    <a
+                      href={item.url || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-[#D5A13A] transition-colors flex items-center space-x-1"
+                    >
+                      <span>{item.label}</span>
+                      <ExternalLink className="w-2.5 h-2.5 text-slate-500" />
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => onNavigate(item.page || 'home')}
+                      className="hover:text-[#D5A13A] transition-colors text-left"
+                    >
+                      {item.label}
+                    </button>
+                  )}
+                </li>
+              ))}
             </ul>
           </div>
 

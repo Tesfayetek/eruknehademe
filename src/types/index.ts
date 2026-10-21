@@ -76,15 +76,36 @@ export interface SiteSettings {
   updatedBy?: string;
 }
 
+export type NavigationMenuType = 'main' | 'dropdown' | 'footer' | 'header';
+export type DestinationType = 'internal' | 'external' | 'custom' | 'anchor';
+
 export interface NavigationItem {
   id: string;
   label: string;
+  slug?: string;
   page: NavigationPage;
   url?: string;
-  isExternal?: boolean;
+  type?: NavigationMenuType;
+  parentId?: string | null;
+  destinationType?: DestinationType;
+  pageId?: string;
+  icon?: string;
   order: number;
   isVisible: boolean;
+  enabled?: boolean;
+  visibleDesktop?: boolean;
+  visibleMobile?: boolean;
+  showInFooter?: boolean;
+  openInNewTab?: boolean;
+  requiresAuth?: boolean;
+  description?: string;
+  isExternal?: boolean;
   isHighlighted?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  children?: NavigationItem[];
 }
 
 export interface PageSectionItem {
@@ -355,6 +376,7 @@ export type NavigationPage =
   | 'portfolio'
   | 'skills'
   | 'experience'
+  | 'training'
   | 'resume'
   | 'insights'
   | 'article-detail'
@@ -364,5 +386,6 @@ export type NavigationPage =
   | 'register'
   | 'verify-email'
   | 'forgot-password'
+  | 'reset-password'
   | 'account'
   | 'admin';

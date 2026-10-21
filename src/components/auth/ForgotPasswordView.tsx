@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { NavigationPage } from '../../types';
+import { requestPasswordReset } from '../../services/authService';
 import { Mail, ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 interface ForgotPasswordViewProps {
@@ -27,7 +28,7 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({ onNaviga
     setLoading(true);
 
     try {
-      await sendPasswordReset(email.trim());
+      await requestPasswordReset(email.trim());
       // Always show generic confirmation to prevent user enumeration
       setSent(true);
     } catch (err: any) {

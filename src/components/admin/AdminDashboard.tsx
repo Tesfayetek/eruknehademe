@@ -39,10 +39,13 @@ import {
   deleteTestimonial,
   getConsultationRequests,
   updateConsultationStatus,
+  deleteConsultationRequest,
   getContactMessages,
   updateContactMessageStatus,
+  deleteContactMessage,
   getUsersList,
   updateUserAccountStatus,
+  deleteUserAccount,
   getSiteSettings,
   updateSiteSettings,
   getAuditLogs,
@@ -74,6 +77,8 @@ import {
 import { MediaUploader } from './MediaUploader';
 import { ExecutiveLetterGenerator } from './ExecutiveLetterGenerator';
 import { SectionBuilder } from './SectionBuilder';
+import { NavigationManager } from './NavigationManager';
+import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import {
   LayoutDashboard,
   Briefcase,
@@ -110,6 +115,11 @@ import {
   Sliders,
   Share2,
   Layout,
+  ChevronDown,
+  Phone,
+  Lock,
+  Menu as MenuIcon,
+  X as XIcon,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -120,7 +130,10 @@ interface AdminDashboardProps {
 type AdminTab =
   | 'overview'
   | 'settings' // 1. Global Website Settings
-  | 'navigation' // 2. Header and Navigation
+  | 'company-info' // Company Information
+  | 'branding' // Branding & Logo
+  | 'theme' // Theme & Colors
+  | 'navigation' // Navigation Management
   | 'hero' // 3. Homepage and Hero Section
   | 'about' // 4. About Me / Founder
   | 'skills' // 5. Skills and Technologies
@@ -131,6 +144,8 @@ type AdminTab =
   | 'resume' // 10. Resume / CV
   | 'letters' // 11. Executive Letter Generator
   | 'contact' // 12. Contact Information
+  | 'services' // Services CMS
+  | 'industries' // Industries CMS
   | 'testimonials' // 13. Testimonials
   | 'articles' // 14. Blog or Articles
   | 'footer' // 15. Footer
@@ -140,6 +155,7 @@ type AdminTab =
   | 'consultations'
   | 'messages'
   | 'customers'
+  | 'security'
   | 'audit';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -148,6 +164,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const { currentUser, userProfile, isAdmin, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [isConfigOpen, setIsConfigOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Live Firestore State
@@ -186,6 +204,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [consultationNote, setConsultationNote] = useState('');
 
   const [notification, setNotification] = useState<string | null>(null);
+
+  // Safe Permanent Deletion State & Handler
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: string;
+    id: string;
+    name: string;
+    deleteFn: (id: string) => Promise<void>;
+    successMsg: string;
+    auditAction?: string;
+    auditEntity?: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteTarget.deleteFn(deleteTarget.id);
+      if (deleteTarget.auditAction) {
+        await logAuditEvent(
+          deleteTarget.auditAction,
+          deleteTarget.auditEntity || deleteTarget.type,
+          deleteTarget.id,
+          `Permanently deleted ${deleteTarget.type}: "${deleteTarget.name}" (ID: ${deleteTarget.id})`,
+          currentUser?.uid || 'admin',
+          currentUser?.email || 'admin'
+        );
+      }
+      await loadAllAdminData();
+      onRefreshPublicData();
+      showNotice(deleteTarget.successMsg);
+      if (viewingConsultation && viewingConsultation.id === deleteTarget.id) {
+        setViewingConsultation(null);
+      }
+      setDeleteTarget(null);
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      setDeleteError(err?.message || `Failed to permanently delete ${deleteTarget.type}.`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const loadAllAdminData = async () => {
     setLoading(true);
@@ -335,36 +397,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col text-slate-900">
       {/* Top Admin Header Bar */}
-      <div className="bg-[#0a1826] text-white border-b border-slate-800 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded bg-[#D5A13A] text-[#10283F] font-serif font-bold text-base flex items-center justify-center shadow">
+      <div className="bg-[#0a1826] text-white border-b border-slate-800 px-4 sm:px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-2.5 sm:space-x-3">
+          <button
+            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            className="lg:hidden p-1.5 text-slate-300 hover:text-white rounded bg-white/5 border border-slate-700"
+            aria-label="Toggle Admin Navigation"
+          >
+            {mobileSidebarOpen ? <XIcon className="w-4 h-4 text-[#D5A13A]" /> : <MenuIcon className="w-4 h-4 text-slate-300" />}
+          </button>
+          <div className="w-8 h-8 rounded bg-[#D5A13A] text-[#10283F] font-serif font-bold text-base flex items-center justify-center shadow shrink-0">
             EA
           </div>
           <div>
-            <h1 className="font-serif text-base font-bold text-white tracking-wide">
+            <h1 className="font-serif text-sm sm:text-base font-bold text-white tracking-wide truncate max-w-[160px] sm:max-w-none">
               {settings?.companyName || 'Erukneh Ademe'} &bull; Master Content Management
             </h1>
-            <span className="text-[10px] text-slate-400">
+            <span className="text-[10px] text-slate-400 block truncate">
               Authorized Administrator: {currentUser?.email}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <button
             onClick={handleSeedDatabase}
             title="Seed baseline consulting services, portfolio, and skills if empty"
-            className="px-3 py-1.5 text-xs font-semibold text-[#10283F] bg-[#D5A13A] hover:bg-[#e6b956] rounded transition-colors shadow flex items-center"
+            className="hidden sm:flex px-3 py-1.5 text-xs font-semibold text-[#10283F] bg-[#D5A13A] hover:bg-[#e6b956] rounded transition-colors shadow items-center"
           >
             <Database className="w-3.5 h-3.5 mr-1" />
-            Seed Default Content
+            Seed Defaults
           </button>
           <button
             onClick={() => onNavigate('home')}
-            className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 rounded transition-colors flex items-center"
+            className="px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 rounded transition-colors flex items-center"
           >
-            <Eye className="w-3.5 h-3.5 mr-1" />
-            View Public Site
+            <Eye className="w-3.5 h-3.5 sm:mr-1" />
+            <span className="hidden sm:inline">View Public Site</span>
           </button>
           <button
             onClick={async () => {
@@ -389,9 +458,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       )}
 
       {/* Main Admin Content Layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Navigation: 18 Modules */}
-        <aside className="w-64 bg-[#10283F] text-slate-300 border-r border-slate-800 flex flex-col justify-between shrink-0 overflow-y-auto">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile Backdrop */}
+        {mobileSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-xs"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar Navigation: 18 Modules + Configuration Accordion */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 w-72 lg:static lg:w-64 bg-[#10283F] text-slate-300 border-r border-slate-800 flex flex-col justify-between shrink-0 overflow-y-auto transition-transform duration-200 ${
+            mobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
+          }`}
+        >
           <div className="p-3 space-y-0.5">
             <button
               onClick={() => setActiveTab('overview')}
@@ -405,29 +486,162 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span>Dashboard Overview</span>
             </button>
 
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pt-2 pb-1">
-              Website & Brand Modules
+            {/* Accordion Menu: Configuration */}
+            <div className="pt-1 pb-1">
+              <button
+                type="button"
+                onClick={() => setIsConfigOpen(!isConfigOpen)}
+                className="w-full text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-200 hover:text-white flex items-center justify-between transition-colors bg-white/5 rounded-md border border-slate-700/60"
+              >
+                <div className="flex items-center space-x-2">
+                  <Sliders className="w-3.5 h-3.5 text-[#D5A13A]" />
+                  <span>Configuration</span>
+                </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                    isConfigOpen ? 'rotate-180 text-[#D5A13A]' : ''
+                  }`}
+                />
+              </button>
+
+              {isConfigOpen && (
+                <div className="pl-2 pr-1 pt-1.5 space-y-0.5 border-l-2 border-[#D5A13A]/50 ml-3 mt-1.5 animate-in fade-in slide-in-from-top-1">
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'settings' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Sliders className="w-3 h-3 text-[#D5A13A]" />
+                    <span>General Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('company-info')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'company-info' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Building className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Company Information</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('branding')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'branding' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Award className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Branding & Logo</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('theme')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'theme' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Layout className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Theme & Colors</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('navigation')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'navigation' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Compass className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Navigation Management</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('hero')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'hero' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Eye className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Homepage Configuration</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('builder')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'builder' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Layers className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Page Management</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('footer')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'footer' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Layout className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Footer Configuration</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('contact')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'contact' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Phone className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Contact & Social Media</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('seo')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'seo' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Share2 className="w-3 h-3 text-[#D5A13A]" />
+                    <span>SEO Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('customers')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'customers' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Users className="w-3 h-3 text-[#D5A13A]" />
+                    <span>User & Role Management</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('security')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'security' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <Lock className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Security Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('audit')}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
+                      activeTab === 'audit' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <FileText className="w-3 h-3 text-[#D5A13A]" />
+                    <span>Audit Logs</span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`w-full text-left px-3 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
-                activeTab === 'settings' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>1. Global Website Settings</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('navigation')}
-              className={`w-full text-left px-3 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
-                activeTab === 'navigation' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
-              }`}
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>2. Header & Navigation</span>
-            </button>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pt-3 pb-1">
+              Website Content Modules
+            </div>
 
             <button
               onClick={() => setActiveTab('hero')}
@@ -960,85 +1174,373 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {/* MODULE 2: HEADER AND NAVIGATION */}
+              {/* CONFIGURATION: NAVIGATION MANAGEMENT */}
               {activeTab === 'navigation' && (
+                <NavigationManager
+                  navItems={navItems}
+                  currentUserEmail={currentUser?.email || 'admin'}
+                  currentUserId={currentUser?.uid || 'admin'}
+                  onRefresh={async () => {
+                    await loadAllAdminData();
+                    onRefreshPublicData();
+                  }}
+                  onShowNotice={showNotice}
+                />
+              )}
+
+              {/* CONFIGURATION: COMPANY INFORMATION */}
+              {activeTab === 'company-info' && settings && (
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="font-serif text-2xl font-bold text-[#10283F]">
-                        Module 2: Header & Navigation Management
-                      </h2>
-                      <p className="text-xs text-slate-500">
-                        Configure navigation labels, destinations, ordering, and visibility.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() =>
-                        setEditingNavItem({
-                          label: 'New Link',
-                          page: 'services',
-                          order: navItems.length + 1,
-                          isVisible: true,
-                        })
-                      }
-                      className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#10283F] hover:bg-[#173859] rounded shadow flex items-center"
-                    >
-                      <Plus className="w-3.5 h-3.5 mr-1 text-[#D5A13A]" />
-                      Add Nav Item
-                    </button>
+                  <div>
+                    <h2 className="font-serif text-2xl font-bold text-[#10283F]">
+                      Company & Advisory Information
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Manage official registered corporate name, founding credentials, head office location, and business hours.
+                    </p>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold">
-                        <tr>
-                          <th className="py-3 px-4">Label</th>
-                          <th className="py-3 px-4">Target Page</th>
-                          <th className="py-3 px-4">Order</th>
-                          <th className="py-3 px-4">Visibility</th>
-                          <th className="py-3 px-4 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {navItems.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50/80">
-                            <td className="py-3 px-4 font-bold text-slate-900">{item.label}</td>
-                            <td className="py-3 px-4 font-mono text-slate-600">{item.page}</td>
-                            <td className="py-3 px-4 text-slate-600">{item.order}</td>
-                            <td className="py-3 px-4">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                  item.isVisible ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {item.isVisible ? 'Visible' : 'Hidden'}
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await updateSiteSettings(settings);
+                      await logAuditEvent('UPDATE_COMPANY_INFO', 'SiteSettings', 'general', 'Updated corporate info', currentUser?.uid || 'admin', currentUser?.email || 'admin');
+                      onRefreshPublicData();
+                      showNotice('Company information updated successfully.');
+                    }}
+                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 text-xs"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Company / Firm Legal Name</label>
+                        <input
+                          type="text"
+                          value={settings.companyName || ''}
+                          onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+                          className="w-full p-2 border rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Corporate Tagline</label>
+                        <input
+                          type="text"
+                          value={settings.tagline || ''}
+                          onChange={(e) => setSettings({ ...settings, tagline: e.target.value })}
+                          className="w-full p-2 border rounded"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Headquarters Street Address</label>
+                        <input
+                          type="text"
+                          value={settings.address || ''}
+                          onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                          className="w-full p-2 border rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Operating Business Hours</label>
+                        <input
+                          type="text"
+                          value={settings.workingHours || ''}
+                          onChange={(e) => setSettings({ ...settings, workingHours: e.target.value })}
+                          className="w-full p-2 border rounded"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Primary Telephone</label>
+                        <input
+                          type="text"
+                          value={settings.phone || ''}
+                          onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                          className="w-full p-2 border rounded font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Secondary / Direct Mobile</label>
+                        <input
+                          type="text"
+                          value={settings.secondaryPhone || ''}
+                          onChange={(e) => setSettings({ ...settings, secondaryPhone: e.target.value })}
+                          className="w-full p-2 border rounded font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Official Corporate Email</label>
+                        <input
+                          type="email"
+                          value={settings.email || ''}
+                          onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                          className="w-full p-2 border rounded font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-3">
+                      <button
+                        type="submit"
+                        className="px-5 py-2 font-semibold text-white bg-[#10283F] hover:bg-[#173859] rounded shadow"
+                      >
+                        Save Company Information
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* CONFIGURATION: BRANDING & LOGO */}
+              {activeTab === 'branding' && settings && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="font-serif text-2xl font-bold text-[#10283F]">
+                      Branding & Logo Configuration
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Configure corporate emblem, logo artwork, favicon, and brand badges.
+                    </p>
+                  </div>
+
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await updateSiteSettings(settings);
+                      await logAuditEvent('UPDATE_BRANDING', 'SiteSettings', 'branding', 'Updated branding and logo', currentUser?.uid || 'admin', currentUser?.email || 'admin');
+                      onRefreshPublicData();
+                      showNotice('Branding and logo settings saved.');
+                    }}
+                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 text-xs"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <div>
+                          <label className="font-semibold text-slate-700 block mb-1">Logo Image URL</label>
+                          <input
+                            type="text"
+                            value={settings.logoUrl || ''}
+                            onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
+                            placeholder="Leave empty to use official EA monogram emblem"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-semibold text-slate-700 block mb-1">Favicon URL</label>
+                          <input
+                            type="text"
+                            value={settings.faviconUrl || ''}
+                            onChange={(e) => setSettings({ ...settings, faviconUrl: e.target.value })}
+                            placeholder="/favicon.ico or icon URL"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-semibold text-slate-700 block mb-1">Hero Eyebrow Badge</label>
+                          <input
+                            type="text"
+                            value={settings.heroBadge || ''}
+                            onChange={(e) => setSettings({ ...settings, heroBadge: e.target.value })}
+                            placeholder="e.g. Premier Advisory • Addis Ababa & East Africa"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col items-center justify-center text-center space-y-3">
+                        <span className="text-xs font-semibold text-slate-500">Logo Live Preview</span>
+                        {settings.logoUrl ? (
+                          <img
+                            src={settings.logoUrl}
+                            alt="Logo Preview"
+                            className="w-20 h-20 object-contain rounded-lg border border-slate-200 bg-white p-2"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#D5A13A] via-[#b88528] to-[#916215] p-1 shadow-md">
+                            <div className="w-full h-full bg-[#10283F] rounded-[9px] flex items-center justify-center border border-[#D5A13A]/40">
+                              <span className="font-serif font-bold text-2xl text-[#D5A13A]">
+                                EA
                               </span>
-                            </td>
-                            <td className="py-3 px-4 text-right space-x-2">
-                              <button
-                                onClick={() => setEditingNavItem(item)}
-                                className="text-slate-600 hover:text-[#10283F]"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (confirm(`Delete nav link "${item.label}"?`)) {
-                                    await deleteNavigationItem(item.id);
-                                    await loadAllAdminData();
-                                    onRefreshPublicData();
-                                    showNotice('Navigation link deleted.');
-                                  }
-                                }}
-                                className="text-rose-600 hover:text-rose-800"
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          </div>
+                        )}
+                        <span className="text-[11px] text-slate-400">
+                          {settings.logoUrl ? 'Custom Image Logo Active' : 'Default Gold Monogram Emblem Active'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-3">
+                      <button
+                        type="submit"
+                        className="px-5 py-2 font-semibold text-white bg-[#10283F] hover:bg-[#173859] rounded shadow"
+                      >
+                        Save Branding Settings
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* CONFIGURATION: THEME & COLORS */}
+              {activeTab === 'theme' && settings && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="font-serif text-2xl font-bold text-[#10283F]">
+                      Theme & Visual Styling
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Configure corporate palette: deep navy blue, warm gold accent, neutral tones, and typography.
+                    </p>
+                  </div>
+
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await updateSiteSettings(settings);
+                      await logAuditEvent('UPDATE_THEME', 'SiteSettings', 'theme', 'Updated theme & colors', currentUser?.uid || 'admin', currentUser?.email || 'admin');
+                      onRefreshPublicData();
+                      showNotice('Theme and colors updated successfully.');
+                    }}
+                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 text-xs"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Primary Corporate Navy</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            value={settings.primaryColor || '#10283F'}
+                            onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                            className="w-10 h-9 p-0.5 border rounded cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={settings.primaryColor || '#10283F'}
+                            onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                            className="w-full p-2 border rounded font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Accent Gold Color</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            value={settings.accentColor || '#D5A13A'}
+                            onChange={(e) => setSettings({ ...settings, accentColor: e.target.value })}
+                            className="w-10 h-9 p-0.5 border rounded cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={settings.accentColor || '#D5A13A'}
+                            onChange={(e) => setSettings({ ...settings, accentColor: e.target.value })}
+                            className="w-full p-2 border rounded font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Background Secondary</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            value={settings.secondaryColor || '#ffffff'}
+                            onChange={(e) => setSettings({ ...settings, secondaryColor: e.target.value })}
+                            className="w-10 h-9 p-0.5 border rounded cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={settings.secondaryColor || '#ffffff'}
+                            onChange={(e) => setSettings({ ...settings, secondaryColor: e.target.value })}
+                            className="w-full p-2 border rounded font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                      <h4 className="font-semibold text-slate-800 mb-2">Palette Preview</h4>
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className="h-12 w-28 rounded shadow flex items-center justify-center text-white font-bold text-xs"
+                          style={{ backgroundColor: settings.primaryColor || '#10283F' }}
+                        >
+                          Navy Blue
+                        </div>
+                        <div
+                          className="h-12 w-28 rounded shadow flex items-center justify-center text-[#10283F] font-bold text-xs"
+                          style={{ backgroundColor: settings.accentColor || '#D5A13A' }}
+                        >
+                          Gold Accent
+                        </div>
+                        <div
+                          className="h-12 w-28 rounded shadow border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs"
+                          style={{ backgroundColor: settings.secondaryColor || '#ffffff' }}
+                        >
+                          Background
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-3">
+                      <button
+                        type="submit"
+                        className="px-5 py-2 font-semibold text-white bg-[#10283F] hover:bg-[#173859] rounded shadow"
+                      >
+                        Apply Theme Changes
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* CONFIGURATION: SECURITY SETTINGS */}
+              {activeTab === 'security' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="font-serif text-2xl font-bold text-[#10283F]">
+                      Security & Authentication Settings
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Audit identity enforcement, verified login rules, password-reset configuration, and RBAC policies.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex items-center space-x-2 text-emerald-700 font-semibold text-sm">
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span>Email Verification Enforced</span>
+                      </div>
+                      <p className="text-slate-600 leading-relaxed">
+                        Every newly registered user is required to verify their email address before accessing protected client dashboards and private consultation requests.
+                      </p>
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded font-mono text-[11px] text-slate-700 space-y-1">
+                        <div>Enforcement: <strong>Active on all routes</strong></div>
+                        <div>Rate Limiting: <strong>60-second cooloff per resend</strong></div>
+                        <div>Unverified Access: <strong>Blocked with verification banner</strong></div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex items-center space-x-2 text-[#10283F] font-semibold text-sm">
+                        <Shield className="w-5 h-5 text-[#D5A13A]" />
+                        <span>Firebase Password Reset Standard</span>
+                      </div>
+                      <p className="text-slate-600 leading-relaxed">
+                        Password recovery uses the official Firebase Web SDK flow (`sendPasswordResetEmail`, `verifyPasswordResetCode`, `confirmPasswordReset`). Supported action modes: `resetPassword`, `verifyEmail`, `recoverEmail`.
+                      </p>
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded font-mono text-[11px] text-slate-700 space-y-1">
+                        <div>Action Link Mode: <strong>resetPassword (standard)</strong></div>
+                        <div>Enumeration Protection: <strong>Generic confirmation dialogs</strong></div>
+                        <div>Invalid Mode Handling: <strong>Graceful recovery prompt</strong></div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1294,15 +1796,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 Edit
                               </button>
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Delete skill "${s.name}"?`)) {
-                                    await deleteSkill(s.id);
-                                    await loadAllAdminData();
-                                    onRefreshPublicData();
-                                    showNotice('Skill deleted.');
-                                  }
-                                }}
-                                className="text-rose-600 hover:text-rose-800"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    type: 'Skill',
+                                    id: s.id,
+                                    name: s.name,
+                                    deleteFn: deleteSkill,
+                                    successMsg: `Skill "${s.name}" permanently deleted.`,
+                                    auditAction: 'DELETE_SKILL',
+                                    auditEntity: 'Skill',
+                                  })
+                                }
+                                className="text-rose-600 hover:text-rose-800 font-semibold"
                               >
                                 Delete
                               </button>
@@ -1371,15 +1876,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             Edit
                           </button>
                           <button
-                            onClick={async () => {
-                              if (confirm(`Delete experience record?`)) {
-                                await deleteExperience(exp.id);
-                                await loadAllAdminData();
-                                onRefreshPublicData();
-                                showNotice('Experience removed.');
-                              }
-                            }}
-                            className="px-3 py-1 text-rose-600 hover:bg-rose-50 rounded"
+                            onClick={() =>
+                              setDeleteTarget({
+                                type: 'Work Experience',
+                                id: exp.id,
+                                name: `${exp.role} at ${exp.company}`,
+                                deleteFn: deleteExperience,
+                                successMsg: 'Work experience record permanently deleted.',
+                                auditAction: 'DELETE_EXPERIENCE',
+                                auditEntity: 'Experience',
+                              })
+                            }
+                            className="px-3 py-1 text-rose-600 hover:bg-rose-50 rounded font-semibold"
                           >
                             Delete
                           </button>
@@ -1449,15 +1957,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 Edit
                               </button>
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Delete degree?`)) {
-                                    await deleteEducation(edu.id);
-                                    await loadAllAdminData();
-                                    onRefreshPublicData();
-                                    showNotice('Degree deleted.');
-                                  }
-                                }}
-                                className="text-rose-600 hover:text-rose-800"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    type: 'Education',
+                                    id: edu.id,
+                                    name: `${edu.degree} (${edu.institution})`,
+                                    deleteFn: deleteEducation,
+                                    successMsg: 'Education record permanently deleted.',
+                                    auditAction: 'DELETE_EDUCATION',
+                                    auditEntity: 'Education',
+                                  })
+                                }
+                                className="text-rose-600 hover:text-rose-800 font-semibold"
                               >
                                 Delete
                               </button>
@@ -1526,15 +2037,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 Edit
                               </button>
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Delete certification?`)) {
-                                    await deleteCertification(c.id);
-                                    await loadAllAdminData();
-                                    onRefreshPublicData();
-                                    showNotice('Certification deleted.');
-                                  }
-                                }}
-                                className="text-rose-600 hover:text-rose-800"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    type: 'Certification',
+                                    id: c.id,
+                                    name: `${c.title} (${c.issuer})`,
+                                    deleteFn: deleteCertification,
+                                    successMsg: 'Certification permanently deleted.',
+                                    auditAction: 'DELETE_CERTIFICATION',
+                                    auditEntity: 'Certification',
+                                  })
+                                }
+                                className="text-rose-600 hover:text-rose-800 font-semibold"
                               >
                                 Delete
                               </button>
@@ -1615,15 +2129,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 Edit
                               </button>
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Delete project "${p.title}"?`)) {
-                                    await deleteProject(p.id);
-                                    await loadAllAdminData();
-                                    onRefreshPublicData();
-                                    showNotice('Project deleted.');
-                                  }
-                                }}
-                                className="text-rose-600 hover:text-rose-800"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    type: 'Project',
+                                    id: p.id,
+                                    name: p.title,
+                                    deleteFn: deleteProject,
+                                    successMsg: `Project "${p.title}" permanently deleted.`,
+                                    auditAction: 'DELETE_PROJECT',
+                                    auditEntity: 'Project',
+                                  })
+                                }
+                                className="text-rose-600 hover:text-rose-800 font-semibold"
                               >
                                 Delete
                               </button>
@@ -1869,15 +2386,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             Edit
                           </button>
                           <button
-                            onClick={async () => {
-                              if (confirm(`Delete testimonial?`)) {
-                                await deleteTestimonial(test.id);
-                                await loadAllAdminData();
-                                onRefreshPublicData();
-                                showNotice('Testimonial deleted.');
-                              }
-                            }}
-                            className="text-rose-600 hover:text-rose-800"
+                            onClick={() =>
+                              setDeleteTarget({
+                                type: 'Testimonial',
+                                id: test.id,
+                                name: `${test.clientName} (${test.clientCompany})`,
+                                deleteFn: deleteTestimonial,
+                                successMsg: 'Testimonial permanently deleted.',
+                                auditAction: 'DELETE_TESTIMONIAL',
+                                auditEntity: 'Testimonial',
+                              })
+                            }
+                            className="text-rose-600 hover:text-rose-800 font-semibold"
                           >
                             Delete
                           </button>
@@ -1957,15 +2477,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 Edit
                               </button>
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Delete article "${art.title}"?`)) {
-                                    await deleteArticle(art.id);
-                                    await loadAllAdminData();
-                                    onRefreshPublicData();
-                                    showNotice('Article deleted.');
-                                  }
-                                }}
-                                className="text-rose-600 hover:text-rose-800"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    type: 'Article',
+                                    id: art.id,
+                                    name: art.title,
+                                    deleteFn: deleteArticle,
+                                    successMsg: `Article "${art.title}" permanently deleted.`,
+                                    auditAction: 'DELETE_ARTICLE',
+                                    auditEntity: 'Article',
+                                  })
+                                }
+                                className="text-rose-600 hover:text-rose-800 font-semibold"
                               >
                                 Delete
                               </button>

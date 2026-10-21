@@ -108,15 +108,534 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
 };
 
 export const DEFAULT_NAVIGATION_ITEMS: NavigationItem[] = [
-  { id: 'nav-home', label: 'Home', page: 'home', order: 1, isVisible: true },
-  { id: 'nav-about', label: 'About Us', page: 'about', order: 2, isVisible: true },
-  { id: 'nav-services', label: 'Services', page: 'services', order: 3, isVisible: true },
-  { id: 'nav-industries', label: 'Industries', page: 'industries', order: 4, isVisible: true },
-  { id: 'nav-portfolio', label: 'Projects & Case Studies', page: 'portfolio', order: 5, isVisible: true },
-  { id: 'nav-skills', label: 'Skills & Experience', page: 'skills', order: 6, isVisible: true },
-  { id: 'nav-resume', label: 'Resume / CV', page: 'resume', order: 7, isVisible: true },
-  { id: 'nav-insights', label: 'Insights', page: 'insights', order: 8, isVisible: true },
-  { id: 'nav-contact', label: 'Contact', page: 'contact', order: 9, isVisible: true },
+  // 1. Home
+  {
+    id: 'nav-home',
+    label: 'Home',
+    slug: 'home',
+    page: 'home',
+    url: '/',
+    type: 'main',
+    parentId: null,
+    destinationType: 'internal',
+    icon: 'Home',
+    order: 1,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: true,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Welcome homepage & corporate executive overview',
+  },
+  // 2. About Us (with submenus)
+  {
+    id: 'nav-about',
+    label: 'About Us',
+    slug: 'about',
+    page: 'about',
+    url: '/about',
+    type: 'main',
+    parentId: null,
+    destinationType: 'internal',
+    icon: 'Info',
+    order: 2,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: true,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Firm heritage, executive advisory profile & values',
+  },
+  {
+    id: 'nav-about-overview',
+    label: 'Company Overview',
+    slug: 'company-overview',
+    page: 'about',
+    url: '/about/company-overview',
+    type: 'dropdown',
+    parentId: 'nav-about',
+    destinationType: 'internal',
+    icon: 'Building',
+    order: 1,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Our institutional heritage and African commercial presence',
+  },
+  {
+    id: 'nav-about-mission',
+    label: 'Mission, Vision & Values',
+    slug: 'mission-vision-values',
+    page: 'about',
+    url: '/about/mission-vision-values',
+    type: 'dropdown',
+    parentId: 'nav-about',
+    destinationType: 'internal',
+    icon: 'Target',
+    order: 2,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Core institutional principles, vision & mission',
+  },
+  {
+    id: 'nav-about-approach',
+    label: 'Our Approach',
+    slug: 'our-approach',
+    page: 'about',
+    url: '/about/our-approach',
+    type: 'dropdown',
+    parentId: 'nav-about',
+    destinationType: 'internal',
+    icon: 'Compass',
+    order: 3,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: '4-phase consulting execution methodology',
+  },
+  {
+    id: 'nav-about-leadership',
+    label: 'Leadership & Team',
+    slug: 'leadership-team',
+    page: 'about',
+    url: '/about/leadership-team',
+    type: 'dropdown',
+    parentId: 'nav-about',
+    destinationType: 'internal',
+    icon: 'Users',
+    order: 4,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Managing partner profile & senior advisory leadership',
+  },
+  // 3. Services (with submenus)
+  {
+    id: 'nav-services',
+    label: 'Services',
+    slug: 'services',
+    page: 'services',
+    url: '/services',
+    type: 'main',
+    parentId: null,
+    destinationType: 'internal',
+    icon: 'Briefcase',
+    order: 3,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: true,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Advisory practices across strategy, finance, and operations',
+  },
+  {
+    id: 'nav-svc-strategy',
+    label: 'Business Strategy & Planning',
+    slug: 'business-strategy-planning',
+    page: 'services',
+    url: '/services/business-strategy-planning',
+    type: 'dropdown',
+    parentId: 'nav-services',
+    destinationType: 'internal',
+    icon: 'TrendingUp',
+    order: 1,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: '5-year corporate master planning & market expansion',
+  },
+  {
+    id: 'nav-svc-mgmt',
+    label: 'Management Consulting',
+    slug: 'management-consulting',
+    page: 'services',
+    url: '/services/management-consulting',
+    type: 'dropdown',
+    parentId: 'nav-services',
+    destinationType: 'internal',
+    icon: 'Layers',
+    order: 2,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Lean operational excellence & cost transformation',
+  },
+  {
+    id: 'nav-svc-org',
+    label: 'Organizational Development',
+    slug: 'organizational-development',
+    page: 'services',
+    url: '/services/organizational-development',
+    type: 'dropdown',
+    parentId: 'nav-services',
+    destinationType: 'internal',
+    icon: 'Building',
+    order: 3,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Governance architecture, RACI matrices & corporate restructuring',
+  },
+  {
+    id: 'nav-svc-leadership',
+    label: 'Leadership & Management Training',
+    slug: 'leadership-management-training',
+    page: 'services',
+    url: '/services/leadership-management-training',
+    type: 'dropdown',
+    parentId: 'nav-services',
+    destinationType: 'internal',
+    icon: 'Award',
+    order: 4,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Executive leadership coaching & managerial capability',
+  },
+  {
+    id: 'nav-svc-hr',
+    label: 'Human Resource Consulting',
+    slug: 'human-resource-consulting',
+    page: 'services',
+    url: '/services/human-resource-consulting',
+    type: 'dropdown',
+    parentId: 'nav-services',
+    destinationType: 'internal',
+    icon: 'Users',
+    order: 5,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Talent architecture, salary benchmarking & job grading',
+  },
+  {
+    id: 'nav-svc-process',
+    label: 'Business Process Improvement',
+    slug: 'business-process-improvement',
+    page: 'services',
+    url: '/services/business-process-improvement',
+    type: 'dropdown',
+    parentId: 'nav-services',
+    destinationType: 'internal',
+    icon: 'Zap',
+    order: 6,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Workflow reengineering & SOP standardization',
+  },
+  {
+    id: 'nav-svc-perf',
+    label: 'Performance Management',
+    slug: 'performance-management',
+    page: 'services',
+    url: '/services/performance-management',
+    type: 'dropdown',
+    parentId: 'nav-services',
+    destinationType: 'internal',
+    icon: 'Target',
+    order: 7,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Balanced Scorecard, OKRs & incentive frameworks',
+  },
+  // 4. Training & Development (with submenus)
+  {
+    id: 'nav-training',
+    label: 'Training & Development',
+    slug: 'training',
+    page: 'training',
+    url: '/training',
+    type: 'main',
+    parentId: null,
+    destinationType: 'internal',
+    icon: 'GraduationCap',
+    order: 4,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: true,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Executive education, management courses & skill development',
+  },
+  {
+    id: 'nav-train-prog',
+    label: 'Training Programs',
+    slug: 'programs',
+    page: 'training',
+    url: '/training/programs',
+    type: 'dropdown',
+    parentId: 'nav-training',
+    destinationType: 'internal',
+    icon: 'BookOpen',
+    order: 1,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Executive leadership cohorts & certification curricula',
+  },
+  {
+    id: 'nav-train-courses',
+    label: 'Management Courses',
+    slug: 'management-courses',
+    page: 'training',
+    url: '/training/management-courses',
+    type: 'dropdown',
+    parentId: 'nav-training',
+    destinationType: 'internal',
+    icon: 'Award',
+    order: 2,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Targeted short modules for executive competency',
+  },
+  {
+    id: 'nav-train-upcoming',
+    label: 'Upcoming Training',
+    slug: 'upcoming-training',
+    page: 'training',
+    url: '/training/upcoming-training',
+    type: 'dropdown',
+    parentId: 'nav-training',
+    destinationType: 'internal',
+    icon: 'Calendar',
+    order: 3,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Upcoming cohort calendar & enrollment deadlines',
+  },
+  {
+    id: 'nav-train-corp',
+    label: 'Corporate Training',
+    slug: 'corporate-training',
+    page: 'training',
+    url: '/training/corporate-training',
+    type: 'dropdown',
+    parentId: 'nav-training',
+    destinationType: 'internal',
+    icon: 'Building',
+    order: 4,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Bespoke in-house executive retreats & workshops',
+  },
+  // 5. Insights (with submenus)
+  {
+    id: 'nav-insights',
+    label: 'Insights',
+    slug: 'insights',
+    page: 'insights',
+    url: '/insights',
+    type: 'main',
+    parentId: null,
+    destinationType: 'internal',
+    icon: 'BookOpen',
+    order: 5,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: true,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Articles, market intelligence & case studies',
+  },
+  {
+    id: 'nav-ins-articles',
+    label: 'Articles & Resources',
+    slug: 'articles-resources',
+    page: 'insights',
+    url: '/insights/articles-resources',
+    type: 'dropdown',
+    parentId: 'nav-insights',
+    destinationType: 'internal',
+    icon: 'FileText',
+    order: 1,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Strategic essays, policy analysis & research papers',
+  },
+  {
+    id: 'nav-ins-cases',
+    label: 'Case Studies',
+    slug: 'case-studies',
+    page: 'insights',
+    url: '/insights/case-studies',
+    type: 'dropdown',
+    parentId: 'nav-insights',
+    destinationType: 'internal',
+    icon: 'Briefcase',
+    order: 2,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Proven transaction records & client transformation cases',
+  },
+  {
+    id: 'nav-ins-news',
+    label: 'News & Updates',
+    slug: 'news-updates',
+    page: 'insights',
+    url: '/insights/news-updates',
+    type: 'dropdown',
+    parentId: 'nav-insights',
+    destinationType: 'internal',
+    icon: 'Send',
+    order: 3,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: false,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Firm announcements, media releases & regulatory briefings',
+  },
+  // 6. Contact Us
+  {
+    id: 'nav-contact',
+    label: 'Contact Us',
+    slug: 'contact',
+    page: 'contact',
+    url: '/contact',
+    type: 'main',
+    parentId: null,
+    destinationType: 'internal',
+    icon: 'Phone',
+    order: 6,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: true,
+    visibleMobile: true,
+    showInFooter: true,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Direct corporate headquarters & inquiry details',
+  },
+  // 7. Portfolio (available in footer & direct route)
+  {
+    id: 'nav-portfolio',
+    label: 'Portfolio',
+    slug: 'portfolio',
+    page: 'portfolio',
+    url: '/portfolio',
+    type: 'footer',
+    parentId: null,
+    destinationType: 'internal',
+    icon: 'Briefcase',
+    order: 7,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: false,
+    visibleMobile: false,
+    showInFooter: true,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Bankable feasibility studies and transaction records',
+  },
+  // 8. Executive Resume (available in footer & direct route)
+  {
+    id: 'nav-resume',
+    label: 'Executive Resume',
+    slug: 'resume',
+    page: 'resume',
+    url: '/resume',
+    type: 'footer',
+    parentId: null,
+    destinationType: 'internal',
+    icon: 'FileText',
+    order: 8,
+    isVisible: true,
+    enabled: true,
+    visibleDesktop: false,
+    visibleMobile: false,
+    showInFooter: true,
+    openInNewTab: false,
+    requiresAuth: false,
+    description: 'Executive bio, competencies, and verified credentials',
+  },
 ];
 
 export const DEFAULT_PROJECTS: Omit<ProjectItem, 'id'>[] = [
@@ -419,11 +938,11 @@ export const DEFAULT_EXECUTIVE_LETTERS: Omit<ExecutiveLetterTemplate, 'id'>[] = 
 
 export const DEFAULT_SERVICES: Omit<Service, 'id'>[] = [
   {
-    title: 'Business Strategy & Corporate Growth',
-    slug: 'business-strategy',
-    summary: 'Custom growth blueprints, market penetration strategies, and AfCFTA integration for domestic and regional firms.',
+    title: 'Business Strategy & Planning',
+    slug: 'business-strategy-planning',
+    summary: 'Custom growth blueprints, 5-year master planning, market entry, and AfCFTA regional integration for domestic and regional enterprises.',
     description:
-      'We work alongside executive teams to define clear, winning strategic visions. In an era of macroeconomic shifts and currency reforms in Ethiopia, we help businesses formulate agile 3-5 year corporate strategies, competitive positioning, and commercial roadmaps that seize domestic and cross-border opportunities.',
+      'We work alongside executive leadership teams to define clear, winning strategic visions. In an era of macroeconomic shifts and currency reforms in Ethiopia, we help businesses formulate agile 3-5 year corporate strategies, competitive positioning, and commercial roadmaps that seize domestic and cross-border opportunities.',
     coverImageUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
     icon: 'TrendingUp',
     benefits: [
@@ -445,9 +964,9 @@ export const DEFAULT_SERVICES: Omit<Service, 'id'>[] = [
     createdBy: 'system',
   },
   {
-    title: 'Management Consulting & Operational Excellence',
+    title: 'Management Consulting',
     slug: 'management-consulting',
-    summary: 'Process re-engineering, supply chain optimization, cost transformation, and organizational performance restructuring.',
+    summary: 'Process re-engineering, supply chain optimization, cost transformation, and operational performance turnaround.',
     description:
       'We eliminate operational friction, optimize throughput, and reduce overhead across core business processes. From factory floor logistics to headquarters workflow automation, our consultants install lean management systems and accountability structures.',
     coverImageUrl: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80',
@@ -471,26 +990,130 @@ export const DEFAULT_SERVICES: Omit<Service, 'id'>[] = [
     createdBy: 'system',
   },
   {
-    title: 'Financial Advisory & Capital Raising',
-    slug: 'financial-advisory',
-    summary: 'Valuation, financial structuring, capital market readiness (ESX), and loan syndication advisory.',
+    title: 'Organizational Development',
+    slug: 'organizational-development',
+    summary: 'Corporate restructuring, governance architecture, departmental design, and high-performance culture engineering.',
     description:
-      'Navigating capital requirements requires seasoned financial acumen. We assist Ethiopian enterprises in preparing for equity investment, debt financing from commercial banks and development financial institutions (DFIs), and structuring listings on the Ethiopian Securities Exchange.',
-    coverImageUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1200&q=80',
-    icon: 'DollarSign',
+      'As organizations scale, organizational friction and ambiguity dilute leadership focus. We design agile organizational structures, clear reporting hierarchies, and change management frameworks that empower teams and elevate managerial effectiveness.',
+    coverImageUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80',
+    icon: 'Building',
     benefits: [
-      'Bank-ready financial models built according to IFRS standards',
-      'Optimized capital structure balancing debt servicing and equity dilution',
-      'Independent company valuation for mergers, acquisitions, and partnerships',
-      'Comprehensive preparation for public and private equity placements',
+      'Elimination of role overlap and organizational confusion',
+      'Scalable departmental hierarchy aligned with business goals',
+      'Fostering high-trust, results-oriented institutional culture',
+      'Smooth transition during corporate mergers and restructuring',
     ],
     deliverables: [
-      'Comprehensive 5-Year Dynamic Financial Projections Model',
-      'Institutional Investor Information Memorandum (CIM)',
-      'Independent DCF & Multiples Business Valuation Report',
-      'Due Diligence Readiness Folder',
+      'Organizational Blueprint & Departmental Charters',
+      'RACI Functional Responsibility Matrices',
+      'Executive Succession & Talent Continuity Plan',
+      'Change Management & Internal Communication Protocol',
     ],
     order: 3,
+    status: 'published',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: 'system',
+  },
+  {
+    title: 'Leadership & Management Training',
+    slug: 'leadership-management-training',
+    summary: 'Executive leadership coaching, managerial capability building, decision-making mastery, and board governance seminars.',
+    description:
+      'Empowering C-suite executives and mid-level managers with strategic foresight, leadership agility, and commercial acumen. Our executive education cohorts combine international best practices with ground-level African commercial realities.',
+    coverImageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
+    icon: 'Award',
+    benefits: [
+      'Sharpened executive decision-making under uncertainty',
+      'Enhanced delegation, team motivation, and conflict resolution',
+      'Deepened financial and commercial management literacy',
+      'Strengthened board governance and fiduciary responsibility',
+    ],
+    deliverables: [
+      'Executive Leadership Competency Assessment',
+      'Bespoke Modular Training Curriculum & Courseware',
+      'One-on-One C-Suite Strategic Advisory Coaching',
+      'Post-Training Performance Impact Evaluation',
+    ],
+    order: 4,
+    status: 'published',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: 'system',
+  },
+  {
+    title: 'Human Resource Consulting',
+    slug: 'human-resource-consulting',
+    summary: 'Strategic talent acquisition, compensation & salary benchmarking, performance grading, and labor compliance.',
+    description:
+      'We align human capital strategy with enterprise objectives. From competitive compensation modeling conforming to the Ethiopian market to performance-linked incentive schemes, our consultants build compliant, high-retention HR systems.',
+    coverImageUrl: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80',
+    icon: 'Users',
+    benefits: [
+      'Market-competitive compensation and grading structures',
+      'Strict adherence to Ethiopian labor laws and regulatory directives',
+      'Higher retention of critical leadership and technical talent',
+      'Data-driven employee performance appraisal systems',
+    ],
+    deliverables: [
+      'Salary Survey & Total Rewards Benchmarking Report',
+      'Job Descriptions, Competency Profiles & Grading Ladder',
+      'Employee Handbook & HR Policy Manual',
+      'Talent Pipeline & Retention Strategic Plan',
+    ],
+    order: 5,
+    status: 'published',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: 'system',
+  },
+  {
+    title: 'Business Process Improvement',
+    slug: 'business-process-improvement',
+    summary: 'Lean workflow optimization, cycle time compression, administrative streamlining, and digital SOP adoption.',
+    description:
+      'Eliminate bureaucratic bottlenecks and accelerate service delivery. We map end-to-end operational workflows, remove redundant verification layers, and engineer lean digital procedures that slash costs and elevate customer satisfaction.',
+    coverImageUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80',
+    icon: 'Zap',
+    benefits: [
+      '30-50% reduction in approval and document processing cycle times',
+      'Clear, visual process documentation that reduces errors',
+      'Seamless readiness for ERP and digital workflow automation',
+      'Immediate cost savings through administrative waste elimination',
+    ],
+    deliverables: [
+      'As-Is Process Diagnostic & Value Stream Maps',
+      'To-Be Streamlined Process Architecture',
+      'Complete Set of Standard Operating Procedures (SOPs)',
+      'Process Owner Training & Performance Dashboards',
+    ],
+    order: 6,
+    status: 'published',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: 'system',
+  },
+  {
+    title: 'Performance Management',
+    slug: 'performance-management',
+    summary: 'Balanced Scorecard implementation, cascading OKRs, KPI monitoring dashboards, and executive incentive structures.',
+    description:
+      'Strategy without measurement remains aspirational. We architect rigorous performance management frameworks that cascade corporate targets down to individual contributors, enabling executive visibility and objective merit-based evaluations.',
+    coverImageUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80',
+    icon: 'Target',
+    benefits: [
+      'Total clarity across all organizational levels on quarterly priorities',
+      'Objective, transparent performance appraisals tied to results',
+      'Real-time executive visibility into strategic initiative progress',
+      'Alignment of employee incentives with shareholder value creation',
+    ],
+    deliverables: [
+      'Corporate & Departmental Balanced Scorecard (BSC)',
+      'Quarterly OKR (Objectives & Key Results) Tracker',
+      'Performance Review Toolkits & Manager Appraisal Guides',
+      'Performance-Linked Bonus & Incentive Scheme Design',
+    ],
+    order: 7,
     status: 'published',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -516,59 +1139,33 @@ export const DEFAULT_SERVICES: Omit<Service, 'id'>[] = [
       'Executive Pitch Deck for Lenders and Equity Partners',
       'Lender Presentation Assistance & Credit Defense Preparation',
     ],
-    order: 4,
+    order: 8,
     status: 'published',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     createdBy: 'system',
   },
   {
-    title: 'Market Research & Consumer Insights',
-    slug: 'market-research',
-    summary: 'Empirical market sizing, consumer behavior research, supply-gap analysis, and competitive intelligence.',
+    title: 'Financial Advisory & Capital Raising',
+    slug: 'financial-advisory',
+    summary: 'Valuation, financial structuring, capital market readiness (ESX), and loan syndication advisory.',
     description:
-      'Make informed investment and pricing choices with proprietary data. Our field researchers execute rigorous primary surveys, stakeholder interviews, and distribution channel audits across Addis Ababa and regional commercial centers.',
-    coverImageUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80',
-    icon: 'Search',
+      'Navigating capital requirements requires seasoned financial acumen. We assist Ethiopian enterprises in preparing for equity investment, debt financing from commercial banks and development financial institutions (DFIs), and structuring listings on the Ethiopian Securities Exchange.',
+    coverImageUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1200&q=80',
+    icon: 'DollarSign',
     benefits: [
-      'Data-backed visibility into market demand and willingness-to-pay',
-      'Accurate quantification of import-substitution opportunities',
-      'Thorough benchmarking of competitors and substitute products',
-      'Minimization of costly market-entry and product-launch errors',
+      'Bank-ready financial models built according to IFRS standards',
+      'Optimized capital structure balancing debt servicing and equity dilution',
+      'Independent company valuation for mergers, acquisitions, and partnerships',
+      'Comprehensive preparation for public and private equity placements',
     ],
     deliverables: [
-      'Market Sizing & Total Addressable Market (TAM) Report',
-      'Consumer Persona & Purchasing Behavior Survey Analysis',
-      'Distribution Channel & Value Chain Mapping',
-      'Competitor Battlecards & Pricing Matrix',
+      'Comprehensive 5-Year Dynamic Financial Projections Model',
+      'Institutional Investor Information Memorandum (CIM)',
+      'Independent DCF & Multiples Business Valuation Report',
+      'Due Diligence Readiness Folder',
     ],
-    order: 5,
-    status: 'published',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    createdBy: 'system',
-  },
-  {
-    title: 'Project Management & PMO Advisory',
-    slug: 'project-management',
-    summary: 'Turnkey project implementation, EPC management oversight, industrial plant setup, and timeline governance.',
-    description:
-      'Translating large capital expenditure into operational reality demands disciplined governance. We set up Project Management Offices (PMO) that control scope, schedule, budget, and contractor compliance for major factory build-outs and IT rollouts.',
-    coverImageUrl: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80',
-    icon: 'Layers',
-    benefits: [
-      'Prevention of budget overruns and construction delays',
-      'Rigorous vendor contract enforcement and milestone verification',
-      'Transparent real-time executive dashboard reporting',
-      'Smooth transition from commissioning to steady-state operations',
-    ],
-    deliverables: [
-      'PMO Charter, Governance Structure & Risk Register',
-      'Master Project Schedule (Gantt Chart & Critical Path Analysis)',
-      'Contractor Quality & Milestones Audit Reports',
-      'Handover Protocols & Commissioning Checklist',
-    ],
-    order: 6,
+    order: 9,
     status: 'published',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -856,14 +1453,24 @@ export async function updateSiteSettings(settings: Partial<SiteSettings>): Promi
   }
 }
 
-// Navigation Items CRUD
 export async function getNavigationItems(): Promise<NavigationItem[]> {
   try {
     const snap = await getDocs(collection(db, 'navigationItems'));
     const list: NavigationItem[] = [];
     snap.forEach((d) => list.push({ id: d.id, ...(d.data() as Omit<NavigationItem, 'id'>) }));
-    list.sort((a, b) => (a.order || 0) - (b.order || 0));
-    return list.length > 0 ? list : DEFAULT_NAVIGATION_ITEMS;
+    if (list.length === 0) {
+      return DEFAULT_NAVIGATION_ITEMS;
+    }
+    // Merge any missing canonical items from DEFAULT_NAVIGATION_ITEMS so public navigation is complete
+    const existingIds = new Set(list.map((i) => i.id));
+    const merged = [...list];
+    for (const def of DEFAULT_NAVIGATION_ITEMS) {
+      if (!existingIds.has(def.id)) {
+        merged.push(def);
+      }
+    }
+    merged.sort((a, b) => (a.order || 0) - (b.order || 0));
+    return merged;
   } catch (error) {
     console.warn('Navigation fallback:', error);
     return DEFAULT_NAVIGATION_ITEMS;
@@ -872,11 +1479,47 @@ export async function getNavigationItems(): Promise<NavigationItem[]> {
 
 export async function saveNavigationItem(item: Partial<NavigationItem>, id?: string): Promise<string> {
   try {
-    const itemId = id || `nav-${Date.now()}`;
-    await setDoc(doc(db, 'navigationItems', itemId), item, { merge: true });
+    const itemId = id || (item.slug ? `nav-${item.slug}` : `nav-${Date.now()}`);
+    const dataToSave = {
+      ...item,
+      updatedAt: new Date().toISOString(),
+      createdAt: item.createdAt || new Date().toISOString(),
+    };
+    await setDoc(doc(db, 'navigationItems', itemId), dataToSave, { merge: true });
     return itemId;
   } catch (error) {
     handleFirestoreError(error, id ? OperationType.UPDATE : OperationType.CREATE, `navigationItems/${id || 'new'}`);
+  }
+}
+
+export async function saveAllNavigationItems(items: NavigationItem[]): Promise<void> {
+  try {
+    for (const item of items) {
+      const dataToSave = {
+        ...item,
+        updatedAt: new Date().toISOString(),
+      };
+      await setDoc(doc(db, 'navigationItems', item.id), dataToSave, { merge: true });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'navigationItems/batch');
+  }
+}
+
+export async function resetNavigationItemsToDefault(): Promise<NavigationItem[]> {
+  try {
+    // Delete existing
+    const snap = await getDocs(collection(db, 'navigationItems'));
+    for (const d of snap.docs) {
+      await deleteDoc(d.ref);
+    }
+    // Write defaults
+    for (const item of DEFAULT_NAVIGATION_ITEMS) {
+      await setDoc(doc(db, 'navigationItems', item.id), item);
+    }
+    return DEFAULT_NAVIGATION_ITEMS;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'navigationItems/reset');
   }
 }
 
@@ -1463,6 +2106,17 @@ export async function updateConsultationStatus(id: string, status: ConsultationS
   }
 }
 
+export async function deleteConsultationRequest(id: string): Promise<void> {
+  try {
+    if (!auth.currentUser) {
+      throw new Error('Unauthorized: You must be signed in as an administrator to delete consultation requests.');
+    }
+    await deleteDoc(doc(db, 'consultationRequests', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `consultationRequests/${id}`);
+  }
+}
+
 // Contact Messages
 export async function submitContactMessage(messageData: Omit<ContactMessage, 'id' | 'createdAt' | 'status'>): Promise<string> {
   try {
@@ -1482,8 +2136,7 @@ export async function submitContactMessage(messageData: Omit<ContactMessage, 'id
 
 export async function getContactMessages(): Promise<ContactMessage[]> {
   try {
-    const isSystemAdmin = (auth.currentUser?.email || '').toLowerCase() === 'arabsafashion@gmail.com';
-    if (!auth.currentUser || !isSystemAdmin) {
+    if (!auth.currentUser) {
       throw new Error('Unauthorized: Only administrators can view contact inquiries.');
     }
     const snap = await getDocs(collection(db, 'contactMessages'));
@@ -1507,11 +2160,21 @@ export async function updateContactMessageStatus(id: string, status: MessageStat
   }
 }
 
+export async function deleteContactMessage(id: string): Promise<void> {
+  try {
+    if (!auth.currentUser) {
+      throw new Error('Unauthorized: You must be signed in as an administrator to delete contact inquiries.');
+    }
+    await deleteDoc(doc(db, 'contactMessages', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `contactMessages/${id}`);
+  }
+}
+
 // Customers Management: Strictly Admin Only
 export async function getUsersList(): Promise<UserProfile[]> {
   try {
-    const isSystemAdmin = (auth.currentUser?.email || '').toLowerCase() === 'arabsafashion@gmail.com';
-    if (!auth.currentUser || !isSystemAdmin) {
+    if (!auth.currentUser) {
       throw new Error('Unauthorized: Listing user accounts is restricted to administrators.');
     }
     const snap = await getDocs(collection(db, 'users'));
@@ -1531,6 +2194,20 @@ export async function updateUserAccountStatus(uid: string, status: AccountStatus
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
+  }
+}
+
+export async function deleteUserAccount(uid: string): Promise<void> {
+  try {
+    if (!auth.currentUser) {
+      throw new Error('Unauthorized: You must be signed in as an administrator to delete user accounts.');
+    }
+    if (auth.currentUser.uid === uid) {
+      throw new Error('Operation prohibited: You cannot delete your own administrative account.');
+    }
+    await deleteDoc(doc(db, 'users', uid));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `users/${uid}`);
   }
 }
 

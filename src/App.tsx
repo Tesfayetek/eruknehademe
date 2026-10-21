@@ -5,6 +5,7 @@ import { Footer } from './components/common/Footer';
 import { HomeView } from './components/public/HomeView';
 import { AboutView } from './components/public/AboutView';
 import { ServicesView } from './components/public/ServicesView';
+import { TrainingView } from './components/public/TrainingView';
 import { IndustriesView } from './components/public/IndustriesView';
 import { PortfolioView } from './components/public/PortfolioView';
 import { SkillsView } from './components/public/SkillsView';
@@ -15,6 +16,7 @@ import { ConsultationModal } from './components/consultation/ConsultationModal';
 import { LoginView } from './components/auth/LoginView';
 import { RegisterView } from './components/auth/RegisterView';
 import { ForgotPasswordView } from './components/auth/ForgotPasswordView';
+import { ResetPasswordConfirmView } from './components/auth/ResetPasswordConfirmView';
 import { VerifyEmailNotice } from './components/auth/VerifyEmailNotice';
 import { AccountProfileView } from './components/customer/AccountProfileView';
 import { AdminDashboard } from './components/admin/AdminDashboard';
@@ -53,10 +55,60 @@ import {
   DEFAULT_RESUME_CONFIG,
 } from './services/dataService';
 
+function parsePathname(pathname: string): { page: NavigationPage; subpage?: string } {
+  const clean = pathname.replace(/^\/+|\/+$/g, '');
+  if (!clean) return { page: 'home' };
+
+  const segments = clean.split('/');
+  const root = segments[0]?.toLowerCase();
+  const sub = segments[1]?.toLowerCase();
+
+  switch (root) {
+    case 'about':
+      return { page: 'about', subpage: sub };
+    case 'services':
+      return { page: 'services', subpage: sub };
+    case 'training':
+      return { page: 'training', subpage: sub };
+    case 'insights':
+      return { page: 'insights', subpage: sub };
+    case 'contact':
+      return { page: 'contact' };
+    case 'industries':
+      return { page: 'industries', subpage: sub };
+    case 'portfolio':
+      return { page: 'portfolio', subpage: sub };
+    case 'skills':
+      return { page: 'skills', subpage: sub };
+    case 'experience':
+      return { page: 'experience', subpage: sub };
+    case 'resume':
+      return { page: 'resume' };
+    case 'login':
+      return { page: 'login' };
+    case 'register':
+      return { page: 'register' };
+    case 'forgot-password':
+      return { page: 'forgot-password' };
+    case 'reset-password':
+      return { page: 'reset-password' };
+    case 'account':
+      return { page: 'account' };
+    case 'admin':
+      return { page: 'admin' };
+    default:
+      return { page: 'home' };
+  }
+}
+
 function AppContent() {
   const { currentUser, isAdmin, isEmailVerified, loading: authLoading, logout } = useAuth();
 
-  const [currentPage, setCurrentPage] = useState<NavigationPage>('home');
+  const initialRoute = parsePathname(window.location.pathname);
+  const [currentPage, setCurrentPage] = useState<NavigationPage>(initialRoute.page);
+  const [currentSubpage, setCurrentSubpage] = useState<string | undefined>(initialRoute.subpage);
+  const [currentUrl, setCurrentUrl] = useState<string>(window.location.pathname);
+
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
   const [navItems, setNavItems] = useState<NavigationItem[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -129,16 +181,64 @@ function AppContent() {
     }
   };
 
+  // Check URL query parameters for Firebase action links (mode, oobCode)
+  const [actionLinkParams, setActionLinkParams] = useState<{ mode: string; oobCode: string } | null>(null);
+
   useEffect(() => {
     fetchPublicContent();
+
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const mode = searchParams.get('mode');
+      const oobCode = searchParams.get('oobCode');
+      if (mode && oobCode) {
+        setActionLinkParams({ mode, oobCode });
+        setCurrentPage('reset-password');
+        setCurrentUrl('/reset-password');
+      }
+    } catch (e) {
+      console.warn('URL action link detection notice:', e);
+    }
+
+    const handlePopState = () => {
+      const route = parsePathname(window.location.pathname);
+      setCurrentPage(route.page);
+      setCurrentSubpage(route.subpage);
+      setCurrentUrl(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const handleNavigate = (page: NavigationPage, param?: string) => {
+  const handleNavigate = (page: NavigationPage, param?: string, targetUrl?: string) => {
     if (page === 'book-consultation') {
       setIsConsultationModalOpen(true);
       return;
     }
+
+    let nextUrl = targetUrl;
+    if (!nextUrl) {
+      if (page === 'home') {
+        nextUrl = '/';
+      } else if (param) {
+        nextUrl = `/${page}/${param}`;
+      } else {
+        nextUrl = `/${page}`;
+      }
+    }
+
+    try {
+      if (window.location.pathname !== nextUrl) {
+        window.history.pushState(null, '', nextUrl);
+      }
+    } catch (err) {
+      // In constrained iframe environments pushState might warn safely
+    }
+
     setCurrentPage(page);
+    setCurrentSubpage(param);
+    setCurrentUrl(nextUrl);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -152,6 +252,8 @@ function AppContent() {
       {/* Top Navbar */}
       <Navbar
         currentPage={currentPage}
+        currentSubpage={currentSubpage}
+        currentUrl={currentUrl}
         onNavigate={handleNavigate}
         onOpenConsultation={handleOpenConsultation}
         navigationItems={navItems}
@@ -183,11 +285,11 @@ function AppContent() {
                 onOpenConsultation={handleOpenConsultation}
                 onSelectService={(svc) => {
                   setSelectedService(svc);
-                  setCurrentPage('services');
+                  handleNavigate('services', svc.slug, `/services/${svc.slug}`);
                 }}
                 onSelectArticle={(art) => {
                   setSelectedArticle(art);
-                  setCurrentPage('insights');
+                  handleNavigate('insights', undefined, '/insights');
                 }}
               />
             )}
@@ -195,6 +297,7 @@ function AppContent() {
             {currentPage === 'about' && (
               <AboutView
                 settings={settings}
+                subpage={currentSubpage}
                 pageSections={pageSections.filter((s) => s.pageId === 'about')}
                 onNavigate={handleNavigate}
                 onOpenConsultation={() => handleOpenConsultation()}
@@ -204,9 +307,19 @@ function AppContent() {
             {currentPage === 'services' && (
               <ServicesView
                 services={services}
+                subpage={currentSubpage}
                 onOpenConsultation={handleOpenConsultation}
                 selectedService={selectedService}
                 onSelectService={setSelectedService}
+                onNavigate={handleNavigate}
+              />
+            )}
+
+            {currentPage === 'training' && (
+              <TrainingView
+                subpage={currentSubpage as any}
+                onNavigate={handleNavigate}
+                onOpenConsultation={handleOpenConsultation}
               />
             )}
 
@@ -250,8 +363,11 @@ function AppContent() {
             {currentPage === 'insights' && (
               <InsightsView
                 articles={articles}
+                projects={projects}
+                subpage={currentSubpage}
                 selectedArticle={selectedArticle}
                 onSelectArticle={setSelectedArticle}
+                onNavigate={handleNavigate}
                 onOpenConsultation={() => handleOpenConsultation()}
               />
             )}
@@ -269,6 +385,22 @@ function AppContent() {
 
             {currentPage === 'forgot-password' && (
               <ForgotPasswordView onNavigate={handleNavigate} />
+            )}
+
+            {currentPage === 'reset-password' && (
+              <ResetPasswordConfirmView
+                mode={actionLinkParams?.mode || 'resetPassword'}
+                oobCode={actionLinkParams?.oobCode || ''}
+                onNavigate={handleNavigate}
+                onClearActionParams={() => {
+                  setActionLinkParams(null);
+                  try {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                  } catch (e) {
+                    // ignore
+                  }
+                }}
+              />
             )}
 
             {currentPage === 'account' && (
@@ -346,6 +478,7 @@ function AppContent() {
           onNavigate={handleNavigate}
           onOpenConsultation={() => handleOpenConsultation()}
           settings={settings}
+          navigationItems={navItems}
         />
       )}
 

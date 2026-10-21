@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { ExecutiveLetterTemplate, SiteSettings } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 import {
   saveExecutiveLetter,
   deleteExecutiveLetter,
+  logAuditEvent,
 } from '../../services/dataService';
+import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import {
   FileText,
   Printer,
@@ -32,6 +35,7 @@ export const ExecutiveLetterGenerator: React.FC<ExecutiveLetterGeneratorProps> =
   onRefresh,
   showNotice,
 }) => {
+  const { currentUser } = useAuth();
   const [selectedLetter, setSelectedLetter] = useState<ExecutiveLetterTemplate | null>(
     letters[0] || null
   );
@@ -39,6 +43,9 @@ export const ExecutiveLetterGenerator: React.FC<ExecutiveLetterGeneratorProps> =
   const [formData, setFormData] = useState<Partial<ExecutiveLetterTemplate>>(
     letters[0] || {}
   );
+  const [deletingLetter, setDeletingLetter] = useState<ExecutiveLetterTemplate | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleSelect = (letter: ExecutiveLetterTemplate) => {
     setSelectedLetter(letter);
@@ -79,6 +86,34 @@ export const ExecutiveLetterGenerator: React.FC<ExecutiveLetterGeneratorProps> =
     showNotice('Executive letter saved successfully.');
     setIsEditing(false);
     onRefresh();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingLetter) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteExecutiveLetter(deletingLetter.id);
+      await logAuditEvent(
+        'DELETE_EXECUTIVE_LETTER',
+        'ExecutiveLetter',
+        deletingLetter.id,
+        `Permanently deleted executive letter: "${deletingLetter.title}" to ${deletingLetter.recipientCompany || deletingLetter.recipientName}`,
+        currentUser?.uid || 'admin',
+        currentUser?.email || 'admin'
+      );
+      showNotice(`Executive letter "${deletingLetter.title}" permanently deleted.`);
+      if (selectedLetter?.id === deletingLetter.id) {
+        setSelectedLetter(letters.find((l) => l.id !== deletingLetter.id) || null);
+      }
+      setDeletingLetter(null);
+      onRefresh();
+    } catch (err: any) {
+      console.error('Delete letter error:', err);
+      setDeleteError(err?.message || 'Failed to delete executive letter from database.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handlePrint = () => {
@@ -241,6 +276,19 @@ CONFIDENTIAL & PROPRIETARY
                     <Download className="w-3.5 h-3.5 mr-1 text-[#D5A13A]" />
                     Export DOCX
                   </button>
+                  {selectedLetter && (
+                    <button
+                      onClick={() => {
+                        setDeletingLetter(selectedLetter);
+                        setDeleteError(null);
+                      }}
+                      className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded flex items-center border border-rose-200 transition-colors"
+                      title="Permanently Delete Letter"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1 text-rose-600" />
+                      Delete
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -423,6 +471,24 @@ CONFIDENTIAL & PROPRIETARY
           )}
         </div>
       </div>
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={!!deletingLetter}
+        title="Delete Executive Letter?"
+        recordType="Executive Letter"
+        recordName={deletingLetter?.title || ''}
+        recordId={deletingLetter?.id}
+        confirmationMessage="Are you sure you want to permanently delete this executive letter? This action cannot be undone."
+        isDeleting={isDeleting}
+        errorMessage={deleteError}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!isDeleting) {
+            setDeletingLetter(null);
+            setDeleteError(null);
+          }
+        }}
+      />
     </div>
   );
 };

@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { PageSectionItem } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 import {
   savePageSection,
   deletePageSection,
+  logAuditEvent,
 } from '../../services/dataService';
+import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import {
   Layers,
   Plus,
@@ -32,8 +35,12 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
   onRefresh,
   showNotice,
 }) => {
+  const { currentUser } = useAuth();
   const [selectedPage, setSelectedPage] = useState<string>('home');
   const [editingSection, setEditingSection] = useState<Partial<PageSectionItem> | null>(null);
+  const [deletingSection, setDeletingSection] = useState<PageSectionItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const pageOptions = [
     { id: 'home', label: 'Homepage' },
@@ -107,11 +114,33 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
     onRefresh();
   };
 
-  const handleDelete = async (sec: PageSectionItem) => {
-    if (confirm(`Delete section "${sec.title}"?`)) {
-      await deletePageSection(sec.id);
-      showNotice('Section removed.');
+  const handleOpenDelete = (sec: PageSectionItem) => {
+    setDeletingSection(sec);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingSection) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deletePageSection(deletingSection.id);
+      await logAuditEvent(
+        'DELETE_PAGE_SECTION',
+        'PageSection',
+        deletingSection.id,
+        `Permanently deleted section "${deletingSection.title}" on page "${deletingSection.pageId}"`,
+        currentUser?.uid || 'admin',
+        currentUser?.email || 'admin'
+      );
+      showNotice(`Section "${deletingSection.title}" permanently deleted.`);
+      setDeletingSection(null);
       onRefresh();
+    } catch (err: any) {
+      console.error('Delete section error:', err);
+      setDeleteError(err?.message || 'Failed to delete section from database.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -257,9 +286,9 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
                   Edit
                 </button>
                 <button
-                  onClick={() => handleDelete(sec)}
+                  onClick={() => handleOpenDelete(sec)}
                   className="p-1.5 text-rose-500 hover:text-rose-700 rounded hover:bg-rose-50"
-                  title="Delete"
+                  title="Delete Section"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -469,6 +498,24 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={!!deletingSection}
+        title="Delete Page Section?"
+        recordType="Page Section"
+        recordName={deletingSection?.title || ''}
+        recordId={deletingSection?.id}
+        confirmationMessage="Are you sure you want to permanently delete this page section? This action cannot be undone."
+        isDeleting={isDeleting}
+        errorMessage={deleteError}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!isDeleting) {
+            setDeletingSection(null);
+            setDeleteError(null);
+          }
+        }}
+      />
     </div>
   );
 };
