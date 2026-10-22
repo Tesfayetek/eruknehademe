@@ -20,7 +20,15 @@ interface RegisterViewProps {
 }
 
 export const RegisterView: React.FC<RegisterViewProps> = ({ onNavigate }) => {
-  const { registerWithEmail, loginWithGoogle, resendVerificationEmail, refreshUser, logout } = useAuth();
+  const {
+    registerWithEmail,
+    loginWithEmail,
+    loginWithGoogle,
+    resendVerificationEmail,
+    resendVerificationForEmail,
+    refreshUser,
+    logout,
+  } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -96,7 +104,11 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onNavigate }) => {
     setResendNotice(null);
     setResendError(null);
     try {
-      await resendVerificationEmail();
+      if (email.trim() && password) {
+        await resendVerificationForEmail(email.trim(), password);
+      } else {
+        await resendVerificationEmail();
+      }
       setResendNotice('Verification email resent. Please check your inbox and junk folder.');
       setCooldown(60);
       const timer = setInterval(() => {
@@ -116,11 +128,19 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onNavigate }) => {
   };
 
   const handleCheckVerified = async () => {
-    const verified = await refreshUser();
-    if (verified) {
-      onNavigate('account');
-    } else {
-      setResendError('Email is still unverified. Please open the confirmation link in your email.');
+    setLoading(true);
+    setResendError(null);
+    try {
+      const { verified } = await loginWithEmail(email.trim(), password);
+      if (verified) {
+        onNavigate('account');
+      } else {
+        setResendError('Email is still unverified. Please check your inbox and verify your email before logging in.');
+      }
+    } catch (err: any) {
+      setResendError(err?.message || 'Email is still unverified. Please check your inbox.');
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -79,6 +79,7 @@ import { ExecutiveLetterGenerator } from './ExecutiveLetterGenerator';
 import { SectionBuilder } from './SectionBuilder';
 import { NavigationManager } from './NavigationManager';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
+import { UserManagementSection } from './UserManagementSection';
 import {
   LayoutDashboard,
   Briefcase,
@@ -613,7 +614,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }`}
                   >
                     <Users className="w-3 h-3 text-[#D5A13A]" />
-                    <span>User & Role Management</span>
+                    <span>User Management & Permissions</span>
                   </button>
 
                   <button
@@ -2634,14 +2635,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               Copy URL
                             </button>
                             <button
-                              onClick={async () => {
-                                if (confirm(`Remove asset "${item.title}"?`)) {
-                                  await deleteMediaItem(item.id);
-                                  await loadAllAdminData();
-                                  showNotice('Media item removed.');
-                                }
-                              }}
-                              className="text-rose-500 hover:text-rose-700"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  type: 'Media Asset',
+                                  id: item.id,
+                                  name: item.title,
+                                  deleteFn: deleteMediaItem,
+                                  successMsg: `Media item "${item.title}" permanently removed.`,
+                                  auditAction: 'DELETE_MEDIA',
+                                  auditEntity: 'Media',
+                                })
+                              }
+                              className="text-rose-500 hover:text-rose-700 font-semibold"
                             >
                               Delete
                             </button>
@@ -2765,15 +2770,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <option value="archived">Archived</option>
                               </select>
                             </td>
-                            <td className="py-3 px-4 text-right">
+                            <td className="py-3 px-4 text-right space-x-2">
                               <button
                                 onClick={() => {
                                   setViewingConsultation(req);
                                   setConsultationNote(req.adminNotes || '');
                                 }}
-                                className="px-3 py-1 text-xs font-semibold text-[#10283F] bg-slate-100 hover:bg-slate-200 rounded"
+                                className="px-2.5 py-1 text-xs font-semibold text-[#10283F] bg-slate-100 hover:bg-slate-200 rounded"
                               >
                                 View Details
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    type: 'Consultation Request',
+                                    id: req.id,
+                                    name: `${req.clientName} (${req.companyName || req.email})`,
+                                    deleteFn: deleteConsultationRequest,
+                                    successMsg: 'Consultation request permanently deleted.',
+                                    auditAction: 'DELETE_CONSULTATION',
+                                    auditEntity: 'ConsultationRequest',
+                                  })
+                                }
+                                className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded"
+                                title="Permanently Delete Consultation Request"
+                              >
+                                Delete
                               </button>
                             </td>
                           </tr>
@@ -2797,7 +2819,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div key={msg.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2 text-xs">
                         <div className="flex justify-between items-center border-b pb-2">
                           <span className="font-bold text-[#10283F] text-sm">{msg.subject}</span>
-                          <span className="text-slate-400 text-[10px]">{new Date(msg.createdAt).toLocaleString()}</span>
+                          <div className="flex items-center space-x-3">
+                            <span className="text-slate-400 text-[10px]">{new Date(msg.createdAt).toLocaleString()}</span>
+                            <button
+                              onClick={() =>
+                                setDeleteTarget({
+                                  type: 'Contact Message',
+                                  id: msg.id,
+                                  name: `Message from ${msg.fullName}: "${msg.subject}"`,
+                                  deleteFn: deleteContactMessage,
+                                  successMsg: 'Contact message permanently deleted.',
+                                  auditAction: 'DELETE_CONTACT_MESSAGE',
+                                  auditEntity: 'ContactMessage',
+                                })
+                              }
+                              className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 text-xs flex items-center"
+                              title="Delete Message"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         </div>
                         <p className="text-slate-500">From: {msg.fullName} ({msg.email}) {msg.phone ? `• Tel: ${msg.phone}` : ''}</p>
                         <p className="p-3 bg-slate-50 rounded border text-slate-700 whitespace-pre-line">{msg.message}</p>
@@ -2807,57 +2849,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {/* CUSTOMERS */}
+              {/* USER MANAGEMENT & PERMISSIONS */}
               {activeTab === 'customers' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="font-serif text-2xl font-bold text-[#10283F]">
-                      Registered Customers
-                    </h2>
-                  </div>
-                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold">
-                        <tr>
-                          <th className="py-3 px-4">Client Name</th>
-                          <th className="py-3 px-4">Email</th>
-                          <th className="py-3 px-4">Role</th>
-                          <th className="py-3 px-4">Status</th>
-                          <th className="py-3 px-4 text-right">Toggle</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {users.map((u) => (
-                          <tr key={u.uid} className="hover:bg-slate-50/80">
-                            <td className="py-3 px-4 font-bold text-slate-900">{u.displayName || 'Unspecified'}</td>
-                            <td className="py-3 px-4 text-slate-600">{u.email}</td>
-                            <td className="py-3 px-4 text-slate-600">{u.role}</td>
-                            <td className="py-3 px-4">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${u.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                                {u.status}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              {u.email !== 'arabsafashion@gmail.com' && (
-                                <button
-                                  onClick={async () => {
-                                    const next = u.status === 'active' ? 'inactive' : 'active';
-                                    await updateUserAccountStatus(u.uid, next);
-                                    await loadAllAdminData();
-                                    showNotice(`Account status updated to ${next}`);
-                                  }}
-                                  className="text-[#b88528] font-semibold hover:underline"
-                                >
-                                  {u.status === 'active' ? 'Deactivate' : 'Activate'}
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <UserManagementSection
+                  onRefreshData={loadAllAdminData}
+                  showNotice={showNotice}
+                  onRequestDeleteUser={(user) => {
+                    setDeleteTarget({
+                      type: 'User Account',
+                      id: user.uid,
+                      name: `${user.displayName || 'Client'} (${user.email})`,
+                      deleteFn: deleteUserAccount,
+                      successMsg: `User account ${user.email} permanently deleted.`,
+                      auditAction: 'DELETE_USER_ACCOUNT',
+                      auditEntity: 'User',
+                    });
+                  }}
+                />
               )}
 
               {/* AUDIT LOGS */}
@@ -3552,32 +3560,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <h3 className="font-serif text-lg font-bold text-[#10283F]">
                 Consultation: {viewingConsultation.id}
               </h3>
-              <button onClick={() => setViewingConsultation(null)} className="text-slate-400">✕</button>
+              <button onClick={() => setViewingConsultation(null)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <p><span className="font-bold">Client:</span> {viewingConsultation.clientName} ({viewingConsultation.email})</p>
-            <p><span className="font-bold">Company:</span> {viewingConsultation.companyName} &bull; {viewingConsultation.industry}</p>
-            <p><span className="font-bold">Scope:</span> {viewingConsultation.projectDescription}</p>
+            <div className="space-y-1.5 text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <p><span className="font-bold text-slate-900">Client:</span> {viewingConsultation.clientName} ({viewingConsultation.email})</p>
+              <p><span className="font-bold text-slate-900">Direct Telephone:</span> {viewingConsultation.phone || 'Not provided'}</p>
+              <p><span className="font-bold text-slate-900">Company:</span> {viewingConsultation.companyName || 'Not specified'}</p>
+              <p><span className="font-bold text-slate-900">Industry Sector:</span> {viewingConsultation.industry || 'Not specified'}</p>
+              {viewingConsultation.projectDescription && (
+                <p><span className="font-bold text-slate-900">Additional Notes:</span> {viewingConsultation.projectDescription}</p>
+              )}
+            </div>
             <div>
-              <label className="font-bold block mb-1">Partner Feedback Note:</label>
+              <label className="font-bold block mb-1 text-slate-800">Partner Feedback Note:</label>
               <textarea
                 rows={3}
                 value={consultationNote}
                 onChange={(e) => setConsultationNote(e.target.value)}
-                className="w-full p-2 border rounded"
+                placeholder="Add internal notes or follow-up status..."
+                className="w-full p-2 border rounded text-xs"
               />
             </div>
             <div className="flex justify-between items-center pt-3 border-t">
-              <select
-                value={viewingConsultation.status}
-                onChange={(e) => setViewingConsultation({ ...viewingConsultation, status: e.target.value as any })}
-                className="p-1 border rounded"
-              >
-                <option value="pending">Pending</option>
-                <option value="reviewed">Reviewed</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="completed">Completed</option>
-                <option value="archived">Archived</option>
-              </select>
+              <div className="flex items-center space-x-2">
+                <select
+                  value={viewingConsultation.status}
+                  onChange={(e) => setViewingConsultation({ ...viewingConsultation, status: e.target.value as any })}
+                  className="p-1.5 border rounded text-xs bg-white"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="reviewed">Reviewed</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="completed">Completed</option>
+                  <option value="archived">Archived</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteTarget({
+                      type: 'Consultation Request',
+                      id: viewingConsultation.id,
+                      name: `${viewingConsultation.clientName} (${viewingConsultation.email})`,
+                      deleteFn: deleteConsultationRequest,
+                      successMsg: 'Consultation request deleted successfully.',
+                      auditAction: 'DELETE_CONSULTATION',
+                      auditEntity: 'consultation_requests',
+                    });
+                  }}
+                  className="px-3 py-1.5 font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded hover:bg-rose-100 flex items-center space-x-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+              </div>
               <button
                 onClick={async () => {
                   await updateConsultationStatus(viewingConsultation.id, viewingConsultation.status, consultationNote);
@@ -3585,7 +3620,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   await loadAllAdminData();
                   showNotice('Consultation record updated.');
                 }}
-                className="px-4 py-1.5 font-semibold text-white bg-[#10283F] rounded"
+                className="px-4 py-1.5 font-semibold text-white bg-[#10283F] rounded hover:bg-[#173859]"
               >
                 Save Record
               </button>
@@ -3593,6 +3628,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Global Permanent Deletion Modal */}
+      <DeleteConfirmationModal
+        isOpen={!!deleteTarget}
+        title={deleteTarget ? `Delete ${deleteTarget.type}?` : undefined}
+        recordName={deleteTarget?.name || ''}
+        recordType={deleteTarget?.type || 'Record'}
+        recordId={deleteTarget?.id}
+        isDeleting={isDeleting}
+        errorMessage={deleteError}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!isDeleting) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+      />
     </div>
   );
 };

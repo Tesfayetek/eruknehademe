@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { submitConsultationRequest } from '../../services/dataService';
+import { NavigationPage } from '../../types';
 import {
   X,
   Calendar,
@@ -10,40 +11,82 @@ import {
   User,
   Briefcase,
   CheckCircle2,
-  Clock,
   ShieldCheck,
   Loader2,
+  AlertCircle,
+  LogIn,
+  UserPlus,
+  RefreshCw,
 } from 'lucide-react';
 
 interface ConsultationModalProps {
   isOpen: boolean;
   onClose: () => void;
   preselectedService?: string;
+  onNavigate?: (page: NavigationPage) => void;
 }
+
+const INDUSTRY_OPTIONS = [
+  'Information Technology',
+  'Financial Services and Insurance',
+  'Manufacturing',
+  'Construction and Real Estate',
+  'Healthcare',
+  'Education and Training',
+  'Agriculture',
+  'Retail and Trade',
+  'Consulting and Professional Services',
+  'Government and Public Sector',
+  'Other',
+];
 
 export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   isOpen,
   onClose,
   preselectedService,
+  onNavigate,
 }) => {
-  const { currentUser, userProfile } = useAuth();
+  const {
+    currentUser,
+    userProfile,
+    isEmailVerified,
+    resendVerificationEmail,
+    refreshUser,
+  } = useAuth();
 
+  // Exactly five fields as specified:
+  // 1. Full Name *
+  // 2. Email *
+  // 3. Direct Telephone (optional)
+  // 4. Company / Organization (optional)
+  // 5. Industry Sector (optional dropdown)
   const [clientName, setClientName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [industry, setIndustry] = useState('Manufacturing & Heavy Industry');
-  const [serviceInterest, setServiceInterest] = useState(
-    preselectedService || 'Business Strategy & Corporate Growth'
-  );
-  const [projectDescription, setProjectDescription] = useState('');
-  const [estimatedTimeline, setEstimatedTimeline] = useState('1-3 Months');
-  const [preferredDate, setPreferredDate] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [otherIndustry, setOtherIndustry] = useState('');
+
+  // Validation errors
+  const [errors, setErrors] = useState<{
+    clientName?: string;
+    email?: string;
+  }>({});
+  const [touched, setTouched] = useState<{
+    clientName?: boolean;
+    email?: boolean;
+  }>({});
 
   const [loading, setLoading] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
 
+  // Email verification action state
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [verificationNotice, setVerificationNotice] = useState<string | null>(null);
+  const [refreshingAuth, setRefreshingAuth] = useState(false);
+
+  // Pre-populate authenticated user's details
   useEffect(() => {
     if (currentUser) {
       setEmail(currentUser.email || '');
@@ -51,39 +94,95 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
       if (userProfile?.phone) setPhone(userProfile.phone);
       if (userProfile?.company) setCompanyName(userProfile.company);
     }
-    if (preselectedService) {
-      setServiceInterest(preselectedService);
-    }
-  }, [currentUser, userProfile, preselectedService, isOpen]);
+  }, [currentUser, userProfile, isOpen]);
 
   if (!isOpen) return null;
 
+  const validateEmailFormat = (val: string): boolean => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(val.trim());
+  };
+
+  const handleBlur = (field: 'clientName' | 'email') => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    validateField(field);
+  };
+
+  const validateField = (field: 'clientName' | 'email') => {
+    const newErrors = { ...errors };
+    if (field === 'clientName') {
+      if (!clientName.trim()) {
+        newErrors.clientName = 'Full Name is required.';
+      } else {
+        delete newErrors.clientName;
+      }
+    }
+    if (field === 'email') {
+      if (!email.trim()) {
+        newErrors.email = 'Email address is required.';
+      } else if (!validateEmailFormat(email)) {
+        newErrors.email = 'Please enter a valid email address (e.g. name@company.com).';
+      } else {
+        delete newErrors.email;
+      }
+    }
+    setErrors(newErrors);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setGeneralError(null);
+
+    // Validate both required fields
+    const newErrors: { clientName?: string; email?: string } = {};
+    if (!clientName.trim()) {
+      newErrors.clientName = 'Full Name is required.';
+    }
+    if (!email.trim()) {
+      newErrors.email = 'Email address is required.';
+    } else if (!validateEmailFormat(email)) {
+      newErrors.email = 'Please enter a valid email address.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setTouched({ clientName: true, email: true });
+      return;
+    }
+
+    // Auth gate check
+    if (!currentUser) {
+      setGeneralError('Please register or sign in to request a consultation.');
+      return;
+    }
+
+    if (!isEmailVerified) {
+      setGeneralError('Please verify your email address before submitting a consultation request.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      if (!clientName.trim() || !email.trim() || !projectDescription.trim()) {
-        throw new Error('Please complete all required fields.');
-      }
+      const finalIndustry =
+        industry === 'Other' && otherIndustry.trim()
+          ? `Other: ${otherIndustry.trim()}`
+          : industry;
 
       const reqId = await submitConsultationRequest({
         clientName: clientName.trim(),
         email: email.trim(),
         phone: phone.trim(),
-        companyName: companyName.trim() || 'Undisclosed Enterprise',
-        industry,
-        serviceInterest,
-        projectDescription: projectDescription.trim(),
-        estimatedTimeline,
-        preferredDate: preferredDate || new Date().toISOString().split('T')[0],
-        userId: currentUser?.uid,
+        companyName: companyName.trim(),
+        industry: finalIndustry,
+        serviceInterest: preselectedService || 'General Strategic Consulting',
+        projectDescription: 'Consultation registration submitted via online client portal.',
+        userId: currentUser.uid,
       });
 
       setSubmittedId(reqId);
     } catch (err: any) {
-      setError(err?.message || 'Failed to submit consultation request. Please try again.');
+      setGeneralError(err?.message || 'Failed to submit consultation request. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -91,14 +190,39 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
 
   const handleResetAndClose = () => {
     setSubmittedId(null);
-    setProjectDescription('');
-    setError(null);
+    setGeneralError(null);
+    setErrors({});
+    setTouched({});
     onClose();
+  };
+
+  const handleResendVerification = async () => {
+    setResendingVerification(true);
+    setVerificationNotice(null);
+    try {
+      await resendVerificationEmail();
+      setVerificationNotice('A fresh verification link has been sent to your email inbox.');
+    } catch (err: any) {
+      setVerificationNotice(err?.message || 'Could not resend verification email.');
+    } finally {
+      setResendingVerification(false);
+    }
+  };
+
+  const handleRefreshStatus = async () => {
+    setRefreshingAuth(true);
+    try {
+      await refreshUser();
+    } catch (err) {
+      console.warn('Refresh error:', err);
+    } finally {
+      setRefreshingAuth(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      <div className="relative bg-[#10283F] border border-slate-700 w-full max-w-2xl rounded-xl shadow-2xl text-slate-100 overflow-hidden my-8">
+      <div className="relative bg-[#10283F] border border-slate-700 w-full max-w-xl rounded-xl shadow-2xl text-slate-100 overflow-hidden my-8">
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-[#173859] to-[#10283F] px-6 py-5 border-b border-slate-700/80 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -107,7 +231,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
             </div>
             <div>
               <h3 className="font-serif text-xl font-bold text-white tracking-tight">
-                Schedule a Strategic Consultation
+                Register for Consultation
               </h3>
               <p className="text-xs text-slate-300">
                 Direct engagement with Erukneh Ademe Business Consulting senior partners.
@@ -117,6 +241,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
           <button
             onClick={handleResetAndClose}
             className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -124,6 +249,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6">
+          {/* STATE 1: Submitted Success Screen */}
           {submittedId ? (
             <div className="text-center py-8 space-y-4 animate-in zoom-in-95 duration-200">
               <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto">
@@ -139,198 +265,299 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                 {submittedId}
               </div>
               <p className="text-xs text-slate-400 max-w-md mx-auto">
-                A member of our executive advisory council will review your submission and contact you at <span className="text-slate-200">{email}</span> within 24 business hours to arrange an introductory briefing.
+                A member of our executive advisory council will review your registration details and contact you at{' '}
+                <span className="text-slate-200 font-semibold">{email}</span> within 24 business hours to arrange an introductory briefing.
               </p>
-              <div className="pt-4 flex justify-center">
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
+                  type="button"
+                  onClick={() => {
+                    handleResetAndClose();
+                    onNavigate?.('account');
+                  }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 text-xs font-semibold text-[#10283F] bg-[#D5A13A] hover:bg-[#e6b956] rounded-md transition-all shadow"
+                >
+                  <Calendar className="w-4 h-4 mr-1.5" />
+                  <span>View My Consultation Requests</span>
+                </button>
+                <button
+                  type="button"
                   onClick={handleResetAndClose}
-                  className="px-6 py-2.5 text-xs font-semibold text-[#10283F] bg-[#D5A13A] hover:bg-[#e6b956] rounded-md transition-all shadow"
+                  className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md transition-all border border-slate-700"
                 >
                   Done
                 </button>
               </div>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 text-xs rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-300">
-                  {error}
+          ) : !currentUser ? (
+            /* STATE 2: Unauthenticated Visitor Guard */
+            <div className="text-center py-8 space-y-5 animate-in fade-in duration-200">
+              <div className="w-14 h-14 rounded-full bg-[#D5A13A]/15 border border-[#D5A13A]/30 text-[#D5A13A] flex items-center justify-center mx-auto">
+                <LogIn className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-serif text-xl font-bold text-white">
+                  Account Required
+                </h4>
+                <p className="text-sm text-slate-300 font-medium">
+                  Please register or sign in to request a consultation.
+                </p>
+                <p className="text-xs text-slate-400 max-w-md mx-auto pt-1 leading-relaxed">
+                  To protect executive client confidentiality and ensure secure, direct communication with our senior advisory team, consultation requests require a verified client account.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onNavigate?.('register');
+                  }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 text-xs font-semibold text-[#10283F] bg-[#D5A13A] hover:bg-[#e6b956] rounded-md transition-all shadow"
+                >
+                  <UserPlus className="w-4 h-4 mr-1.5" />
+                  Register Account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onNavigate?.('login');
+                  }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-md transition-all"
+                >
+                  <LogIn className="w-4 h-4 mr-1.5 text-[#D5A13A]" />
+                  Sign In
+                </button>
+              </div>
+            </div>
+          ) : !isEmailVerified ? (
+            /* STATE 3: Unverified Email Notice */
+            <div className="text-center py-8 space-y-5 animate-in fade-in duration-200">
+              <div className="w-14 h-14 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-serif text-xl font-bold text-white">
+                  Email Verification Required
+                </h4>
+                <p className="text-sm text-slate-300 font-medium">
+                  Please verify your email address to submit a consultation request.
+                </p>
+                <p className="text-xs text-slate-400 max-w-md mx-auto pt-1 leading-relaxed">
+                  A verification email has been sent to{' '}
+                  <span className="text-white font-semibold">{currentUser.email}</span>. Click the link in that email, then refresh your status below.
+                </p>
+              </div>
+
+              {verificationNotice && (
+                <div className="p-3 text-xs rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 max-w-md mx-auto">
+                  {verificationNotice}
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Full Name <span className="text-[#D5A13A]">*</span>
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      required
-                      value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
-                      placeholder="e.g. Alazar Bekele"
-                      className="w-full pl-9 pr-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:border-[#D5A13A]"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Corporate Email <span className="text-[#D5A13A]">*</span>
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@company.com"
-                      className="w-full pl-9 pr-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:border-[#D5A13A]"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Direct Telephone
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+251 91 100 0000"
-                      className="w-full pl-9 pr-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:border-[#D5A13A]"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Company / Organization
-                  </label>
-                  <div className="relative">
-                    <Building className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="e.g. Rift Valley Holdings PLC"
-                      className="w-full pl-9 pr-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:border-[#D5A13A]"
-                    />
-                  </div>
-                </div>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
+                <button
+                  type="button"
+                  disabled={refreshingAuth}
+                  onClick={handleRefreshStatus}
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold text-[#10283F] bg-[#D5A13A] hover:bg-[#e6b956] rounded-md transition-all disabled:opacity-50"
+                >
+                  {refreshingAuth ? (
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-1.5" />
+                  )}
+                  I Have Verified My Email
+                </button>
+                <button
+                  type="button"
+                  disabled={resendingVerification}
+                  onClick={handleResendVerification}
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-md transition-all disabled:opacity-50"
+                >
+                  {resendingVerification ? (
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <Mail className="w-4 h-4 mr-1.5 text-[#D5A13A]" />
+                  )}
+                  Resend Verification Email
+                </button>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Industry Sector
-                  </label>
-                  <select
-                    value={industry}
-                    onChange={(e) => setIndustry(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white focus:outline-none focus:border-[#D5A13A]"
-                  >
-                    <option value="Manufacturing & Heavy Industry">Manufacturing & Heavy Industry</option>
-                    <option value="Agriculture & Agro-Processing">Agriculture & Agro-Processing</option>
-                    <option value="Trade, Freight & Logistics">Trade, Freight & Logistics</option>
-                    <option value="SMEs & High-Growth Startups">SMEs & High-Growth Startups</option>
-                    <option value="NGOs & Development Agencies">NGOs & Development Agencies</option>
-                    <option value="Financial Services & FinTech">Financial Services & FinTech</option>
-                    <option value="International Investors / Joint Ventures">International Investors / FDI</option>
-                    <option value="Other Industry">Other Industry</option>
-                  </select>
+            </div>
+          ) : (
+            /* STATE 4: Exactly 5 Form Fields in Required Order */
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              {generalError && (
+                <div className="p-3 text-xs rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-300 flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                  <span>{generalError}</span>
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Primary Service Required
-                  </label>
-                  <select
-                    value={serviceInterest}
-                    onChange={(e) => setServiceInterest(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white focus:outline-none focus:border-[#D5A13A]"
-                  >
-                    <option value="Business Strategy & Corporate Growth">Business Strategy & Corporate Growth</option>
-                    <option value="Management Consulting & Operational Excellence">Management Consulting & Operations</option>
-                    <option value="Financial Advisory & Capital Raising">Financial Advisory & ESX Listing</option>
-                    <option value="Business Plan & Bankable Feasibility Studies">Business Plan & Feasibility Studies</option>
-                    <option value="Market Research & Consumer Insights">Market Research & Field Intelligence</option>
-                    <option value="Project Management & PMO Advisory">Project Management & PMO Advisory</option>
-                    <option value="Other Specialized Consulting">Other Specialized Consulting</option>
-                  </select>
-                </div>
-              </div>
-
+              {/* FIELD 1: Full Name * */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Project Scope & Strategic Challenges <span className="text-[#D5A13A]">*</span>
+                  Full Name <span className="text-[#D5A13A] font-bold">*</span>
                 </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={projectDescription}
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                  placeholder="Outline your company's core objectives, timeline constraints, or specific hurdles you would like our advisory team to address..."
-                  className="w-full px-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:border-[#D5A13A]"
-                />
+                <div className="relative">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    required
+                    value={clientName}
+                    onChange={(e) => {
+                      setClientName(e.target.value);
+                      if (errors.clientName) {
+                        setErrors((prev) => ({ ...prev, clientName: undefined }));
+                      }
+                    }}
+                    onBlur={() => handleBlur('clientName')}
+                    placeholder="e.g. Alazar Bekele"
+                    className={`w-full pl-9 pr-3 py-2 text-sm bg-[#0a1826] border rounded-md text-white placeholder-slate-500 focus:outline-none transition-colors ${
+                      touched.clientName && errors.clientName
+                        ? 'border-rose-500 focus:border-rose-500'
+                        : 'border-slate-700 focus:border-[#D5A13A]'
+                    }`}
+                  />
+                </div>
+                {touched.clientName && errors.clientName && (
+                  <p className="text-xs text-rose-400 mt-1 flex items-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                    {errors.clientName}
+                  </p>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Engagement Timeline
-                  </label>
-                  <select
-                    value={estimatedTimeline}
-                    onChange={(e) => setEstimatedTimeline(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white focus:outline-none focus:border-[#D5A13A]"
-                  >
-                    <option value="Immediate (Within 30 Days)">Immediate (Within 30 Days)</option>
-                    <option value="1-3 Months">1-3 Months</option>
-                    <option value="3-6 Months">3-6 Months</option>
-                    <option value="Exploratory / Budget Planning">Exploratory / Budget Planning</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Preferred Briefing Date
-                  </label>
+              {/* FIELD 2: Email * */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Email <span className="text-[#D5A13A] font-bold">*</span>
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                   <input
-                    type="date"
-                    value={preferredDate}
-                    onChange={(e) => setPreferredDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white focus:outline-none focus:border-[#D5A13A]"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errors.email) {
+                        setErrors((prev) => ({ ...prev, email: undefined }));
+                      }
+                    }}
+                    onBlur={() => handleBlur('email')}
+                    placeholder="name@company.com"
+                    className={`w-full pl-9 pr-3 py-2 text-sm bg-[#0a1826] border rounded-md text-white placeholder-slate-500 focus:outline-none transition-colors ${
+                      touched.email && errors.email
+                        ? 'border-rose-500 focus:border-rose-500'
+                        : 'border-slate-700 focus:border-[#D5A13A]'
+                    }`}
+                  />
+                </div>
+                {touched.email && errors.email && (
+                  <p className="text-xs text-rose-400 mt-1 flex items-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                    {errors.email}
+                  </p>
+                )}
+              </div>
+
+              {/* FIELD 3: Direct Telephone */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Direct Telephone
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+251 91 100 0000"
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:border-[#D5A13A] transition-colors"
                   />
                 </div>
               </div>
 
+              {/* FIELD 4: Company / Organization */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Company / Organization
+                </label>
+                <div className="relative">
+                  <Building className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="e.g. Rift Valley Holdings PLC"
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:border-[#D5A13A] transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* FIELD 5: Industry Sector */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Industry Sector
+                </label>
+                <div className="relative">
+                  <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                  <select
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-[#0a1826] border border-slate-700 rounded-md text-white focus:outline-none focus:border-[#D5A13A] transition-colors appearance-none cursor-pointer"
+                  >
+                    <option value="">Select Industry Sector (Optional)</option>
+                    {INDUSTRY_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} className="bg-[#10283F] text-white">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400 text-xs">
+                    ▼
+                  </div>
+                </div>
+
+                {/* Optional subordinate specify input when 'Other' is chosen */}
+                {industry === 'Other' && (
+                  <div className="mt-2 animate-in fade-in duration-150">
+                    <input
+                      type="text"
+                      value={otherIndustry}
+                      onChange={(e) => setOtherIndustry(e.target.value)}
+                      placeholder="Please specify your industry sector..."
+                      className="w-full px-3 py-1.5 text-xs bg-[#0a1826] border border-slate-700 rounded text-white placeholder-slate-500 focus:outline-none focus:border-[#D5A13A]"
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* Confidentiality Notice */}
-              <div className="p-3 bg-slate-900/60 rounded border border-slate-800 flex items-start space-x-2 text-[11px] text-slate-400">
+              <div className="p-3 bg-slate-900/60 rounded border border-slate-800 flex items-start space-x-2 text-[11px] text-slate-400 mt-2">
                 <ShieldCheck className="w-4 h-4 text-[#D5A13A] shrink-0 mt-0.5" />
                 <span>
-                  All communications and enterprise project specifications are protected under strict non-disclosure and professional consulting confidentiality protocols.
+                  All client registrations and corporate discussions are protected under strict non-disclosure and professional consulting confidentiality protocols.
                 </span>
               </div>
 
-              <div className="pt-2 flex justify-end space-x-3">
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end space-x-3">
                 <button
                   type="button"
                   onClick={handleResetAndClose}
-                  className="px-4 py-2 text-xs font-medium text-slate-300 hover:text-white bg-transparent hover:bg-white/5 rounded-md transition-colors"
+                  disabled={loading}
+                  className="px-4 py-2 text-xs font-medium text-slate-300 hover:text-white bg-transparent hover:bg-white/5 rounded-md transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2.5 text-xs font-semibold text-[#10283F] bg-gradient-to-r from-[#e6b956] via-[#D5A13A] to-[#c4912e] rounded-md shadow-md hover:shadow-[#D5A13A]/25 transition-all flex items-center disabled:opacity-50"
+                  className="px-6 py-2.5 text-xs font-semibold text-[#10283F] bg-gradient-to-r from-[#e6b956] via-[#D5A13A] to-[#c4912e] hover:brightness-105 active:scale-[0.99] rounded-md shadow-md transition-all flex items-center disabled:opacity-50"
                 >
                   {loading && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
                   Submit Consultation Request

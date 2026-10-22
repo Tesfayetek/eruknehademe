@@ -1,5 +1,5 @@
-export type UserRole = 'admin' | 'customer';
-export type AccountStatus = 'active' | 'inactive';
+export type UserRole = 'admin' | 'customer' | 'consultation_user' | string;
+export type AccountStatus = 'active' | 'inactive' | 'disabled';
 export type ContentStatus = 'draft' | 'published';
 export type ConsultationStatus = 'pending' | 'reviewed' | 'scheduled' | 'completed' | 'archived';
 export type MessageStatus = 'unread' | 'read' | 'replied' | 'archived';
@@ -13,9 +13,161 @@ export interface UserProfile {
   emailVerified: boolean;
   phone?: string;
   company?: string;
+  photoURL?: string;
+  permissions?: string[];
   createdAt: string;
   updatedAt?: string;
 }
+
+export interface RoleDefinition {
+  id: string;
+  name: string;
+  description: string;
+  isSystem?: boolean;
+  permissions: string[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PermissionMetadata {
+  key: string;
+  label: string;
+  description: string;
+  category: 'Dashboard & Navigation' | 'Consultation Management' | 'User Profile' | 'User Management & Permissions' | 'Website Content & CMS' | 'System & Audit';
+}
+
+export const SYSTEM_PERMISSIONS: PermissionMetadata[] = [
+  {
+    key: 'dashboard.view',
+    label: 'View Dashboard',
+    description: 'Access the executive analytics and management overview.',
+    category: 'Dashboard & Navigation',
+  },
+  {
+    key: 'consultation.view',
+    label: 'View Consultations',
+    description: 'Inspect consultation requests and meeting schedules.',
+    category: 'Consultation Management',
+  },
+  {
+    key: 'consultation.create',
+    label: 'Create Consultation Request',
+    description: 'Register and submit new advisory consultation inquiries.',
+    category: 'Consultation Management',
+  },
+  {
+    key: 'consultation.edit',
+    label: 'Edit Consultations',
+    description: 'Update consultation statuses, meeting details, and partner feedback.',
+    category: 'Consultation Management',
+  },
+  {
+    key: 'consultation.delete',
+    label: 'Delete Consultations',
+    description: 'Permanently remove consultation inquiries from the database.',
+    category: 'Consultation Management',
+  },
+  {
+    key: 'profile.view',
+    label: 'View Profile',
+    description: 'Access personal account profile and verified credentials.',
+    category: 'User Profile',
+  },
+  {
+    key: 'profile.edit',
+    label: 'Edit Profile',
+    description: 'Update permitted personal contact and company details.',
+    category: 'User Profile',
+  },
+  {
+    key: 'user_management.view',
+    label: 'View Users & Roles',
+    description: 'Access registered users list and roles directory.',
+    category: 'User Management & Permissions',
+  },
+  {
+    key: 'user_management.manage',
+    label: 'Manage Users & Permissions',
+    description: 'Assign roles, toggle account active/disabled states, and configure role permissions.',
+    category: 'User Management & Permissions',
+  },
+  {
+    key: 'settings.manage',
+    label: 'Manage Site Settings',
+    description: 'Update branding, themes, typography, and contact configuration.',
+    category: 'Website Content & CMS',
+  },
+  {
+    key: 'content.view',
+    label: 'View Public Content',
+    description: 'Browse articles, case studies, and firm credentials.',
+    category: 'Website Content & CMS',
+  },
+  {
+    key: 'content.edit',
+    label: 'Edit Website CMS Content',
+    description: 'Create and update articles, portfolio case studies, and page sections.',
+    category: 'Website Content & CMS',
+  },
+  {
+    key: 'messages.view',
+    label: 'View Contact Messages',
+    description: 'Inspect inquiries submitted via the public contact form.',
+    category: 'Website Content & CMS',
+  },
+  {
+    key: 'messages.delete',
+    label: 'Delete Contact Messages',
+    description: 'Permanently purge contact inquiries from the inbox.',
+    category: 'Website Content & CMS',
+  },
+  {
+    key: 'audit.view',
+    label: 'View Audit Logs',
+    description: 'Review administrative security events, role changes, and system audit trail.',
+    category: 'System & Audit',
+  },
+];
+
+export const DEFAULT_SYSTEM_ROLES: RoleDefinition[] = [
+  {
+    id: 'admin',
+    name: 'Administrator',
+    description: 'Full administrative access to all modules, records, and security settings.',
+    isSystem: true,
+    permissions: SYSTEM_PERMISSIONS.map((p) => p.key),
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'customer',
+    name: 'Registered User',
+    description: 'Default role for verified client portal users with personal profile and consultation privileges.',
+    isSystem: true,
+    permissions: [
+      'profile.view',
+      'profile.edit',
+      'consultation.view',
+      'consultation.create',
+      'content.view',
+    ],
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'consultation_user',
+    name: 'Consultation User',
+    description: 'Corporate client actively participating in advisory engagements and scheduled sessions.',
+    isSystem: false,
+    permissions: [
+      'profile.view',
+      'profile.edit',
+      'consultation.view',
+      'consultation.create',
+      'content.view',
+    ],
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+];
+
 
 export interface SiteSettings {
   id?: string;
@@ -248,6 +400,9 @@ export interface Service {
   summary: string;
   description: string;
   coverImageUrl: string;
+  imageAlt?: string;
+  imagePosition?: 'center' | 'top' | 'bottom' | 'cover';
+  storagePath?: string;
   icon: string;
   benefits: string[];
   deliverables: string[];
@@ -329,12 +484,12 @@ export interface ConsultationRequest {
   id: string;
   clientName: string;
   email: string;
-  phone: string;
-  companyName: string;
-  industry: string;
-  serviceInterest: string;
-  projectDescription: string;
-  estimatedTimeline: string;
+  phone?: string;
+  companyName?: string;
+  industry?: string;
+  serviceInterest?: string;
+  projectDescription?: string;
+  estimatedTimeline?: string;
   preferredDate?: string;
   status: ConsultationStatus;
   adminNotes?: string;

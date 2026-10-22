@@ -12,14 +12,30 @@ import {
   Send,
   RefreshCw,
   LogOut,
+  Calendar,
 } from 'lucide-react';
 
 interface LoginViewProps {
   onNavigate: (page: NavigationPage) => void;
+  consultationNotice?: boolean;
+  onAuthSuccess?: () => void;
 }
 
-export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
-  const { loginWithEmail, loginWithGoogle, resendVerificationEmail, refreshUser, logout, currentUser, isEmailVerified } = useAuth();
+export const LoginView: React.FC<LoginViewProps> = ({
+  onNavigate,
+  consultationNotice,
+  onAuthSuccess,
+}) => {
+  const {
+    loginWithEmail,
+    loginWithGoogle,
+    resendVerificationEmail,
+    resendVerificationForEmail,
+    refreshUser,
+    logout,
+    currentUser,
+    isEmailVerified,
+  } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +44,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
 
   // Unverified user state
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [cachedPassword, setCachedPassword] = useState<string>('');
   const [resending, setResending] = useState(false);
   const [resendNotice, setResendNotice] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
@@ -48,14 +65,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
       const { verified } = await loginWithEmail(email.trim(), password);
 
       if (!verified) {
-        // Step 5: Deny access to protected pages
-        // Step 6: Display message explaining email verification is required
+        // Step 5: Immediately signed out and access blocked in AuthContext
+        // Step 6: Display exact required message
         setUnverifiedEmail(email.trim());
+        setCachedPassword(password);
         return;
       }
 
-      // Step 4: If verified, proceed
-      onNavigate('account');
+      // Step 4: If verified, proceed to destination
+      if (onAuthSuccess) {
+        onAuthSuccess();
+      } else {
+        onNavigate('account');
+      }
     } catch (err: any) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         setError('Invalid email address or password. Please verify your credentials and try again.');
@@ -76,8 +98,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
     setResendError(null);
 
     try {
-      await resendVerificationEmail();
-      setResendNotice('Verification email resent. Please check your inbox and junk folder.');
+      if (unverifiedEmail) {
+        await resendVerificationForEmail(unverifiedEmail, cachedPassword || password);
+      } else {
+        await resendVerificationEmail();
+      }
+      setResendNotice('Verification email resent. Please check your inbox and spam folder.');
       setCooldown(60);
       const timer = setInterval(() => {
         setCooldown((c) => {
@@ -89,7 +115,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
         });
       }, 1000);
     } catch (err: any) {
-      setResendError(err?.message || 'Failed to dispatch verification email. Please wait a moment.');
+      setResendError(err?.message || 'Failed to dispatch verification email. Please check your credentials.');
     } finally {
       setResending(false);
     }
@@ -99,15 +125,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
     setLoading(true);
     setResendError(null);
     try {
-      const verified = await refreshUser();
-      if (verified) {
-        setUnverifiedEmail(null);
-        onNavigate('account');
-      } else {
-        setResendError('Email is still unverified. Please open the confirmation link sent to your email.');
+      if (unverifiedEmail && (cachedPassword || password)) {
+        const { verified } = await loginWithEmail(unverifiedEmail, cachedPassword || password);
+        if (verified) {
+          setUnverifiedEmail(null);
+          onNavigate('account');
+          return;
+        }
       }
+      setResendError('Your email address has not been verified yet. Please check your inbox and verify your email before logging in.');
     } catch (err: any) {
-      setResendError(err?.message || 'Failed to check verification status.');
+      setResendError(err?.message || 'Failed to verify account status.');
     } finally {
       setLoading(false);
     }
@@ -116,6 +144,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
   const handleSignOut = async () => {
     await logout();
     setUnverifiedEmail(null);
+    setCachedPassword('');
     setPassword('');
     setError(null);
     setResendNotice(null);
@@ -151,6 +180,23 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
           </p>
         </div>
 
+        {/* Protected Consultation Flow Notice */}
+        {consultationNotice && !unverifiedEmail && (
+          <div className="p-3.5 bg-amber-50/90 border border-amber-200 text-amber-950 rounded-xl text-xs flex items-start space-x-2.5 animate-in fade-in">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 text-[#b88528] flex items-center justify-center shrink-0 border border-amber-200">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div className="space-y-0.5">
+              <p className="font-bold text-slate-900 text-xs">
+                Account Required for Consultation Registration
+              </p>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Consultation requests are reserved for verified client accounts. Please log in or register below to continue directly to the consultation registration form.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Step 6 & 7: Unverified User State Card */}
         {unverifiedEmail ? (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 text-amber-950 space-y-4 animate-in fade-in">
@@ -163,14 +209,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
                   Email Verification Required
                 </span>
                 <h4 className="font-serif text-base font-bold text-[#10283F]">
-                  Please Verify Your Email
+                  Email Not Verified
                 </h4>
-                <p className="text-xs text-slate-700 leading-relaxed">
-                  Your account has been authenticated, but your email{' '}
-                  <span className="font-semibold text-[#10283F] font-mono bg-white px-1.5 py-0.5 rounded border border-amber-200">
-                    {unverifiedEmail}
-                  </span>{' '}
-                  has not yet been verified. Access to protected client workspaces is denied until verification is complete.
+                <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                  Your email address has not been verified. Please check your inbox and verify your email before logging in.
+                </p>
+                <p className="text-[11px] text-slate-500 font-mono pt-1">
+                  Target: {unverifiedEmail}
                 </p>
               </div>
             </div>
@@ -201,7 +246,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
                 ) : (
                   <RefreshCw className="w-3.5 h-3.5 text-[#D5A13A]" />
                 )}
-                <span>I've Verified (Check Status)</span>
+                <span>I've Verified (Check Status & Log In)</span>
               </button>
 
               <button

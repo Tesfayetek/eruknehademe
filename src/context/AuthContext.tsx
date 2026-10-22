@@ -10,9 +10,9 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { UserProfile, UserRole } from '../types';
+import { UserProfile, UserRole, RoleDefinition, DEFAULT_SYSTEM_ROLES, SYSTEM_PERMISSIONS } from '../types';
 
 const ADMIN_BOOTSTRAP_EMAIL = 'arabsafashion@gmail.com';
 
@@ -23,13 +23,17 @@ interface AuthContextType {
   isAdmin: boolean;
   isEmailVerified: boolean;
   loading: boolean;
-  loginWithEmail: (email: string, pass: string) => Promise<{ verified: boolean }>;
-  registerWithEmail: (name: string, email: string, pass: string) => Promise<void>;
+  roles: RoleDefinition[];
+  hasPermission: (permission: string) => boolean;
+  loginWithEmail: (email: string, pass: string) => Promise<{ verified: boolean; email?: string }>;
+  registerWithEmail: (name: string, email: string, pass: string) => Promise<{ email: string }>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
+  resendVerificationForEmail: (email: string, pass?: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   refreshUser: () => Promise<boolean>;
+  refreshRoles: () => Promise<void>;
   updateProfileDetails: (details: Partial<UserProfile>) => Promise<void>;
 }
 
@@ -39,14 +43,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isEmailVerified, setIsEmailVerified] = useState<boolean>(false);
+  const [roles, setRoles] = useState<RoleDefinition[]>(DEFAULT_SYSTEM_ROLES);
   const [loading, setLoading] = useState<boolean>(true);
   const [lastVerificationSent, setLastVerificationSent] = useState<number>(0);
 
+  const fetchRoles = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'roles'));
+      if (!snap.empty) {
+        const loaded: RoleDefinition[] = [];
+        snap.forEach((d) => loaded.push({ id: d.id, ...(d.data() as Omit<RoleDefinition, 'id'>) }));
+        setRoles(loaded);
+      } else {
+        setRoles(DEFAULT_SYSTEM_ROLES);
+      }
+    } catch (e) {
+      console.warn('Roles fetch note:', e);
+      setRoles(DEFAULT_SYSTEM_ROLES);
+    }
+  };
+
   // Sync user profile from Firestore or bootstrap admin
-  const syncProfile = async (fbUser: FirebaseUser | null) => {
+  const syncProfile = async (fbUser: FirebaseUser | null): Promise<UserProfile | null> => {
     if (!fbUser) {
       setUserProfile(null);
-      return;
+      return null;
     }
 
     try {
@@ -56,19 +77,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (userSnap.exists()) {
         const data = userSnap.data() as UserProfile;
-        // If system admin email, ensure role is admin
-        if (isSystemAdminEmail && data.role !== 'admin') {
+        // If system admin email and verified, ensure role is admin
+        if (isSystemAdminEmail && data.role !== 'admin' && fbUser.emailVerified) {
           await updateDoc(userRef, { role: 'admin', updatedAt: new Date().toISOString() });
           data.role = 'admin';
         }
+
+        // If user account is disabled, sign out immediately
+        if (data.status === 'disabled' || data.status === 'inactive') {
+          await signOut(auth);
+          setCurrentUser(null);
+          setUserProfile(null);
+          setIsEmailVerified(false);
+          throw new Error('Your account has been deactivated or disabled by an administrator. Please contact support.');
+        }
+
         setUserProfile(data);
+        return data;
       } else {
-        // Create initial profile
+        // Create initial profile for verified users (e.g. Google sign-in)
         const newProfile: UserProfile = {
           uid: fbUser.uid,
           email: fbUser.email || '',
           displayName: fbUser.displayName || (isSystemAdminEmail ? 'Erukneh Ademe (Admin)' : 'Consulting Client'),
-          role: isSystemAdminEmail ? 'admin' : 'customer',
+          role: isSystemAdminEmail && fbUser.emailVerified ? 'admin' : 'customer',
           status: 'active',
           emailVerified: fbUser.emailVerified,
           createdAt: new Date().toISOString(),
@@ -79,7 +111,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUserProfile(newProfile);
 
         // Also ensure admin mapping document exists if admin
-        if (isSystemAdminEmail) {
+        if (isSystemAdminEmail && fbUser.emailVerified) {
           const adminRef = doc(db, 'admins', fbUser.uid);
           await setDoc(
             adminRef,
@@ -91,12 +123,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             { merge: true }
           );
         }
+
+        return newProfile;
       }
-    } catch (err) {
-      console.warn('Profile sync notice:', err);
-      // Fallback for UI if network or permissions sync is in progress
-      if ((fbUser.email || '').toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase()) {
-        setUserProfile({
+    } catch (err: any) {
+      console.warn('Profile sync notice:', err?.message || err);
+      if (err?.message?.includes('deactivated or disabled')) {
+        throw err;
+      }
+      // Fallback for UI if bootstrap admin
+      if ((fbUser.email || '').toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase() && fbUser.emailVerified) {
+        const adminProfile: UserProfile = {
           uid: fbUser.uid,
           email: fbUser.email || '',
           displayName: fbUser.displayName || 'Administrator',
@@ -104,12 +141,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           status: 'active',
           emailVerified: true,
           createdAt: new Date().toISOString(),
-        });
+        };
+        setUserProfile(adminProfile);
+        return adminProfile;
       }
+      return null;
     }
   };
 
   useEffect(() => {
+    fetchRoles();
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         try {
@@ -120,21 +162,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         const freshUser = auth.currentUser || fbUser;
-        setCurrentUser(freshUser);
-
         const isSystemAdminEmail = (freshUser.email || '').toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase();
         const verified = Boolean(
           freshUser.emailVerified ||
-          isSystemAdminEmail ||
+          (isSystemAdminEmail && freshUser.emailVerified) ||
           freshUser.providerData?.some((p) => p.providerId === 'google.com')
         );
 
-        setIsEmailVerified(verified);
-
         if (verified) {
-          await syncProfile(freshUser);
+          setCurrentUser(freshUser);
+          setIsEmailVerified(true);
+          try {
+            await syncProfile(freshUser);
+          } catch (e) {
+            // Disabled accounts were signed out in syncProfile
+          }
         } else {
+          // Rule 2: If the email is not verified, immediately sign the user out and block access to protected pages
+          await signOut(auth);
+          setCurrentUser(null);
           setUserProfile(null);
+          setIsEmailVerified(false);
         }
       } else {
         setCurrentUser(null);
@@ -152,54 +200,77 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       await auth.currentUser.reload();
       const freshUser = auth.currentUser;
-      setCurrentUser(freshUser);
-
       const isSystemAdminEmail = (freshUser.email || '').toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase();
       const verified = Boolean(
         freshUser.emailVerified ||
-        isSystemAdminEmail ||
+        (isSystemAdminEmail && freshUser.emailVerified) ||
         freshUser.providerData?.some((p) => p.providerId === 'google.com')
       );
 
-      setIsEmailVerified(verified);
-
       if (verified) {
+        setCurrentUser(freshUser);
+        setIsEmailVerified(true);
         await syncProfile(freshUser);
+        return true;
+      } else {
+        await signOut(auth);
+        setCurrentUser(null);
+        setUserProfile(null);
+        setIsEmailVerified(false);
+        return false;
       }
-      return verified;
     } catch (err) {
       console.warn('Refresh user error:', err);
       return false;
     }
   };
 
-  const loginWithEmail = async (email: string, pass: string): Promise<{ verified: boolean }> => {
+  const loginWithEmail = async (email: string, pass: string): Promise<{ verified: boolean; email?: string }> => {
+    // 1. Authenticate using Firebase Authentication
     const cred = await signInWithEmailAndPassword(auth, email, pass);
+    
+    // 2. Retrieve the authenticated user's current status via reload
     await cred.user.reload();
     const freshUser = auth.currentUser || cred.user;
-    setCurrentUser(freshUser);
 
     const isSystemAdminEmail = (freshUser.email || '').toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase();
     const verified = Boolean(
       freshUser.emailVerified ||
-      isSystemAdminEmail ||
+      (isSystemAdminEmail && freshUser.emailVerified) ||
       freshUser.providerData?.some((p) => p.providerId === 'google.com')
     );
 
-    setIsEmailVerified(verified);
-
-    if (verified) {
-      await syncProfile(freshUser);
+    // 4 & 5: If the email is not verified, immediately sign the user out and block access to protected pages
+    if (!verified) {
+      await signOut(auth);
+      setCurrentUser(null);
+      setUserProfile(null);
+      setIsEmailVerified(false);
+      return { verified: false, email: freshUser.email || email };
     }
 
-    return { verified };
+    // 5. If the email is verified, retrieve the user's authorized role and permissions
+    setCurrentUser(freshUser);
+    setIsEmailVerified(true);
+    const profile = await syncProfile(freshUser);
+
+    if (profile && (profile.status === 'disabled' || profile.status === 'inactive')) {
+      await signOut(auth);
+      setCurrentUser(null);
+      setUserProfile(null);
+      setIsEmailVerified(false);
+      throw new Error('Your account has been deactivated or disabled by an administrator. Please contact support.');
+    }
+
+    return { verified: true, email: freshUser.email || email };
   };
 
-  const registerWithEmail = async (name: string, email: string, pass: string) => {
+  const registerWithEmail = async (name: string, email: string, pass: string): Promise<{ email: string }> => {
+    // 1. Create user with Firebase Auth
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     const fbUser = cred.user;
 
-    // Send verification email immediately
+    // 2. Send verification email immediately
     try {
       await sendEmailVerification(fbUser);
       setLastVerificationSent(Date.now());
@@ -207,15 +278,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.warn('Verification email dispatch notice:', e);
     }
 
-    const isSystemAdminEmail = (email || '').toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase();
-
+    // 3. New users must receive ONLY the default registered-user role (customer). Never grant administrator privileges during public registration.
     const newProfile: UserProfile = {
       uid: fbUser.uid,
       email: fbUser.email || email,
       displayName: name,
-      role: isSystemAdminEmail ? 'admin' : 'customer',
+      role: 'customer',
       status: 'active',
-      emailVerified: fbUser.emailVerified,
+      emailVerified: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -226,9 +296,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       handleFirestoreError(error, OperationType.CREATE, `users/${fbUser.uid}`);
     }
 
-    setCurrentUser(fbUser);
-    setIsEmailVerified(fbUser.emailVerified || isSystemAdminEmail);
-    setUserProfile(newProfile);
+    // 4. Immediately sign out the unverified newly registered user
+    await signOut(auth);
+    setCurrentUser(null);
+    setUserProfile(null);
+    setIsEmailVerified(false);
+
+    return { email: fbUser.email || email };
   };
 
   const loginWithGoogle = async () => {
@@ -247,9 +321,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const resendVerificationEmail = async () => {
-    if (!auth.currentUser) throw new Error('No active user session. Please sign in to request verification.');
+    if (!auth.currentUser) throw new Error('No active user session. Please enter your credentials on the login screen to request verification.');
     
-    // 60-second rate-limiting
     const now = Date.now();
     const timeSinceLast = now - lastVerificationSent;
     if (timeSinceLast < 60000) {
@@ -268,6 +341,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const resendVerificationForEmail = async (email: string, pass?: string) => {
+    const now = Date.now();
+    const timeSinceLast = now - lastVerificationSent;
+    if (timeSinceLast < 60000) {
+      const remaining = Math.ceil((60000 - timeSinceLast) / 1000);
+      throw new Error(`Please wait ${remaining} seconds before requesting another verification email.`);
+    }
+
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser);
+      setLastVerificationSent(Date.now());
+      return;
+    }
+
+    if (!pass) {
+      throw new Error('Please enter your password to resend the verification email.');
+    }
+
+    // Authenticate briefly to resend verification link, then immediately sign out
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    try {
+      await sendEmailVerification(cred.user);
+      setLastVerificationSent(Date.now());
+    } finally {
+      await signOut(auth);
+    }
+  };
+
   const sendPasswordReset = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
   };
@@ -277,7 +378,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const userRef = doc(db, 'users', currentUser.uid);
 
     // Filter strictly to permitted personal profile fields
-    const allowedKeys: (keyof UserProfile)[] = ['displayName', 'phone', 'company'];
+    const allowedKeys: (keyof UserProfile)[] = ['displayName', 'phone', 'company', 'photoURL'];
     const cleanUpdate: Record<string, any> = {
       updatedAt: new Date().toISOString(),
     };
@@ -297,7 +398,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isSystemAdmin = (currentUser?.email || '').toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase();
   const isAdmin = (isSystemAdmin || userProfile?.role === 'admin') && isEmailVerified;
-  const role: UserRole | null = isAdmin ? 'admin' : userProfile ? 'customer' : null;
+  const role: UserRole | null = isAdmin ? 'admin' : userProfile ? userProfile.role : null;
+
+  // Granular Permission Checker
+  const hasPermission = (permission: string): boolean => {
+    if (!currentUser || !isEmailVerified) return false;
+    if (userProfile?.status === 'disabled' || userProfile?.status === 'inactive') return false;
+    if (isAdmin) return true;
+
+    // Check custom permissions override on user profile
+    if (userProfile?.permissions?.includes(permission)) return true;
+
+    // Check assigned role permissions from roles list
+    const currentRoleKey = userProfile?.role || 'customer';
+    const roleDef = roles.find((r) => r.id === currentRoleKey);
+    if (roleDef && roleDef.permissions.includes(permission)) {
+      return true;
+    }
+
+    // Default system fallback for customer
+    if (currentRoleKey === 'customer') {
+      const defaultCustomerRole = DEFAULT_SYSTEM_ROLES.find((r) => r.id === 'customer');
+      if (defaultCustomerRole && defaultCustomerRole.permissions.includes(permission)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
 
   return (
     <AuthContext.Provider
@@ -308,13 +436,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAdmin,
         isEmailVerified,
         loading,
+        roles,
+        hasPermission,
         loginWithEmail,
         registerWithEmail,
         loginWithGoogle,
         logout,
         resendVerificationEmail,
+        resendVerificationForEmail,
         sendPasswordReset,
         refreshUser,
+        refreshRoles: fetchRoles,
         updateProfileDetails,
       }}
     >

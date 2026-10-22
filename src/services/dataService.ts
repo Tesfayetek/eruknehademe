@@ -35,6 +35,8 @@ import {
   ConsultationStatus,
   MessageStatus,
   AccountStatus,
+  RoleDefinition,
+  DEFAULT_SYSTEM_ROLES,
 } from '../types';
 
 // ==================== DEFAULT SEED CONTENT ====================
@@ -2025,15 +2027,39 @@ export async function deleteMediaItem(id: string): Promise<void> {
 }
 
 // Consultation Requests
-export async function submitConsultationRequest(requestData: Omit<ConsultationRequest, 'id' | 'createdAt' | 'status'> & { userId?: string }): Promise<string> {
+export async function submitConsultationRequest(
+  requestData: Partial<Omit<ConsultationRequest, 'id' | 'createdAt' | 'status'>> & {
+    clientName: string;
+    email: string;
+    userId?: string;
+  }
+): Promise<string> {
   try {
+    const currentAuthUser = auth.currentUser;
+    if (!currentAuthUser) {
+      throw new Error('Authentication required: Please sign in or register to submit a consultation request.');
+    }
+
+    const isSystemAdmin = (currentAuthUser.email || '').toLowerCase() === 'arabsafashion@gmail.com';
+    if (!currentAuthUser.emailVerified && !isSystemAdmin) {
+      throw new Error('Email verification required: Please verify your email before registering for a consultation.');
+    }
+
     const reqId = `consult-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const fullRequest: Omit<ConsultationRequest, 'id'> = {
-      ...requestData,
+      clientName: requestData.clientName.trim(),
+      email: requestData.email.trim(),
+      phone: requestData.phone?.trim() || '',
+      companyName: requestData.companyName?.trim() || '',
+      industry: requestData.industry?.trim() || '',
+      serviceInterest: requestData.serviceInterest?.trim() || 'General Strategic Consulting',
+      projectDescription: requestData.projectDescription?.trim() || 'Register for consultation request',
       status: 'pending',
+      userId: currentAuthUser.uid, // Derived strictly from verified session UID to prevent impersonation
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
     await setDoc(doc(db, 'consultationRequests', reqId), fullRequest);
     return reqId;
   } catch (error) {
@@ -2197,6 +2223,59 @@ export async function updateUserAccountStatus(uid: string, status: AccountStatus
   }
 }
 
+export async function updateUserRole(uid: string, role: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      role,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
+  }
+}
+
+// ==================== ROLES & PERMISSIONS ====================
+export async function getRoles(): Promise<RoleDefinition[]> {
+  try {
+    const snap = await getDocs(collection(db, 'roles'));
+    if (snap.empty) {
+      // Return default system roles if database has not seeded yet
+      return DEFAULT_SYSTEM_ROLES;
+    }
+    const list: RoleDefinition[] = [];
+    snap.forEach((d) => {
+      list.push({ id: d.id, ...(d.data() as Omit<RoleDefinition, 'id'>) });
+    });
+    return list;
+  } catch (error) {
+    console.warn('Roles fetch notice, falling back to defaults:', error);
+    return DEFAULT_SYSTEM_ROLES;
+  }
+}
+
+export async function saveRole(role: RoleDefinition): Promise<void> {
+  try {
+    const roleRef = doc(db, 'roles', role.id);
+    await setDoc(roleRef, {
+      ...role,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `roles/${role.id}`);
+  }
+}
+
+export async function deleteRole(roleId: string): Promise<void> {
+  try {
+    if (roleId === 'admin' || roleId === 'customer') {
+      throw new Error('System roles cannot be deleted.');
+    }
+    await deleteDoc(doc(db, 'roles', roleId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `roles/${roleId}`);
+  }
+}
+
 export async function deleteUserAccount(uid: string): Promise<void> {
   try {
     if (!auth.currentUser) {
@@ -2312,6 +2391,11 @@ export async function seedInitialDatabaseIfEmpty(): Promise<boolean> {
       // Seed testimonials
       for (let i = 0; i < DEFAULT_TESTIMONIALS.length; i++) {
         await setDoc(doc(db, 'testimonials', `test-${i + 1}`), DEFAULT_TESTIMONIALS[i]);
+      }
+
+      // Seed system roles
+      for (const role of DEFAULT_SYSTEM_ROLES) {
+        await setDoc(doc(db, 'roles', role.id), role);
       }
 
       return true;

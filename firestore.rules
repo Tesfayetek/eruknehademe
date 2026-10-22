@@ -48,16 +48,27 @@ service cloud.firestore {
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
              (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
              (!('company' in data) || (data.company is string && data.company.size() <= 128)) &&
-             data.role in ['customer', 'admin'] &&
-             data.status in ['active', 'inactive'];
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500)) &&
+             (!('permissions' in data) || data.permissions is list) &&
+             data.role is string && data.role.size() <= 64 &&
+             data.status in ['active', 'inactive', 'disabled'];
+    }
+
+    // Role Definition Validation
+    function isValidRole(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 64 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             (!('isSystem' in data) || data.isSystem is bool) &&
+             data.permissions is list;
     }
 
     // Consultation Request Validation
     function isValidConsultation(data) {
       return data.clientName is string && data.clientName.size() > 0 && data.clientName.size() <= 128 &&
              data.email is string && data.email.size() > 0 && data.email.size() <= 128 &&
-             data.serviceInterest is string && data.serviceInterest.size() <= 100 &&
-             data.projectDescription is string && data.projectDescription.size() <= 4000 &&
+             (!('serviceInterest' in data) || (data.serviceInterest is string && data.serviceInterest.size() <= 100)) &&
+             (!('projectDescription' in data) || (data.projectDescription is string && data.projectDescription.size() <= 4000)) &&
              (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
              (!('companyName' in data) || (data.companyName is string && data.companyName.size() <= 128)) &&
              (!('industry' in data) || (data.industry is string && data.industry.size() <= 100)) &&
@@ -91,12 +102,15 @@ service cloud.firestore {
         incoming().uid == request.auth.uid &&
         incoming().role == 'customer' &&
         incoming().status == 'active' &&
-        incoming().email == request.auth.token.email
+        incoming().email == request.auth.token.email &&
+        !incoming().keys().hasAny(['isAdmin'])
       ) || (
         isAdmin() && isValidUser(incoming())
       );
 
-      // 4. Updating profile requires verified email and ownership (or verified admin)
+      // 4. Updating profile:
+      // Admins can update roles, status, and permissions.
+      // Verified owners can ONLY update permitted personal profile fields (displayName, phone, company, photoURL, updatedAt).
       allow update: if (
         isAdmin() && isValidUser(incoming()) && incoming().uid == existing().uid
       ) || (
@@ -108,8 +122,9 @@ service cloud.firestore {
         incoming().status == existing().status &&
         incoming().email == existing().email &&
         incoming().emailVerified == existing().emailVerified &&
+        (!('permissions' in existing()) || incoming().permissions == existing().permissions) &&
         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'company', 'updatedAt'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'company', 'photoURL', 'updatedAt'])
       );
 
       // 5. Deletion restricted to verified administrator
@@ -126,6 +141,13 @@ service cloud.firestore {
     match /admins/{adminId} {
       allow get, list: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    // Roles Collection (Authenticated Read, Admin Write)
+    match /roles/{roleId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isAdmin() && isValidRole(incoming());
+      allow delete: if isAdmin() && roleId != 'admin' && roleId != 'customer';
     }
 
     // Site Settings (Public Read, Admin Write)
@@ -218,13 +240,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Consultation Requests: Reading requires verified email + ownership (or admin)
+    // Consultation Requests: Verified ownership required for create and read
     match /consultationRequests/{requestId} {
-      allow create: if isValidConsultation(incoming()) && (
-        !('userId' in incoming()) ||
-        incoming().userId == null ||
-        (isSignedIn() && incoming().userId == request.auth.uid)
-      );
+      allow create: if isVerified() &&
+        isValidConsultation(incoming()) &&
+        incoming().userId == request.auth.uid;
       allow get: if isAdmin() || (isVerified() && resource.data.userId == request.auth.uid);
       allow list: if isAdmin() || (isVerified() && resource.data.userId == request.auth.uid);
       allow update, delete: if isAdmin();

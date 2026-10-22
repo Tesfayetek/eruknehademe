@@ -344,11 +344,18 @@ export const AccountProfileView: React.FC<AccountProfileViewProps> = ({
                       <div>{getStatusBadge(req.status)}</div>
                     </div>
 
-                    <div className="text-xs text-slate-700 space-y-1">
-                      <p className="font-semibold text-slate-800">Scope Overview:</p>
-                      <p className="text-slate-600 leading-relaxed bg-white p-3 rounded border border-slate-200 text-xs">
-                        {req.projectDescription}
-                      </p>
+                    <div className="text-xs text-slate-700 bg-white p-3 rounded border border-slate-200 space-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <p><span className="font-semibold text-slate-900">Company:</span> {req.companyName || 'Not specified'}</p>
+                        <p><span className="font-semibold text-slate-900">Industry Sector:</span> {req.industry || 'Not specified'}</p>
+                        <p><span className="font-semibold text-slate-900">Direct Telephone:</span> {req.phone || 'Not provided'}</p>
+                        <p><span className="font-semibold text-slate-900">Contact Email:</span> {req.email}</p>
+                      </div>
+                      {req.projectDescription && req.projectDescription !== 'Register for consultation request' && (
+                        <p className="pt-1 text-slate-600 border-t border-slate-100">
+                          <span className="font-semibold text-slate-900">Notes:</span> {req.projectDescription}
+                        </p>
+                      )}
                     </div>
 
                     {req.adminNotes && (
@@ -360,11 +367,6 @@ export const AccountProfileView: React.FC<AccountProfileViewProps> = ({
                         <p>{req.adminNotes}</p>
                       </div>
                     )}
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                      <span>Timeline: {req.estimatedTimeline}</span>
-                      <span>Target Date: {req.preferredDate || 'Flexible'}</span>
-                    </div>
                   </div>
                 ))}
               </div>

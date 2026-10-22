@@ -127,6 +127,7 @@ function AppContent() {
   // Modals & Selected states
   const [isConsultationModalOpen, setIsConsultationModalOpen] = useState(false);
   const [consultationPreselectedService, setConsultationPreselectedService] = useState<string | undefined>();
+  const [returnToConsultation, setReturnToConsultation] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
 
@@ -211,9 +212,17 @@ function AppContent() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Auto-resume consultation registration once user verifies email and logs in
+  useEffect(() => {
+    if (returnToConsultation && currentUser && isEmailVerified) {
+      setReturnToConsultation(false);
+      setIsConsultationModalOpen(true);
+    }
+  }, [returnToConsultation, currentUser, isEmailVerified]);
+
   const handleNavigate = (page: NavigationPage, param?: string, targetUrl?: string) => {
     if (page === 'book-consultation') {
-      setIsConsultationModalOpen(true);
+      handleOpenConsultation();
       return;
     }
 
@@ -243,7 +252,21 @@ function AppContent() {
   };
 
   const handleOpenConsultation = (serviceName?: string) => {
-    setConsultationPreselectedService(serviceName);
+    if (serviceName) {
+      setConsultationPreselectedService(serviceName);
+    }
+    // Step 2 & 3: Check authentication status. If not logged in, redirect to login page.
+    if (!currentUser) {
+      setReturnToConsultation(true);
+      handleNavigate('login');
+      return;
+    }
+    // Step 6: Block unverified users from accessing protected consultation form
+    if (!isEmailVerified) {
+      setReturnToConsultation(true);
+      handleNavigate('account');
+      return;
+    }
     setIsConsultationModalOpen(true);
   };
 
@@ -379,7 +402,21 @@ function AppContent() {
               />
             )}
 
-            {currentPage === 'login' && <LoginView onNavigate={handleNavigate} />}
+            {currentPage === 'login' && (
+              <LoginView
+                onNavigate={handleNavigate}
+                consultationNotice={returnToConsultation}
+                onAuthSuccess={() => {
+                  if (returnToConsultation) {
+                    setReturnToConsultation(false);
+                    setIsConsultationModalOpen(true);
+                    handleNavigate('home');
+                  } else {
+                    handleNavigate('account');
+                  }
+                }}
+              />
+            )}
 
             {currentPage === 'register' && <RegisterView onNavigate={handleNavigate} />}
 
@@ -487,6 +524,7 @@ function AppContent() {
         isOpen={isConsultationModalOpen}
         onClose={() => setIsConsultationModalOpen(false)}
         preselectedService={consultationPreselectedService}
+        onNavigate={handleNavigate}
       />
     </div>
   );
