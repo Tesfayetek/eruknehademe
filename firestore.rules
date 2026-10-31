@@ -86,55 +86,38 @@ service cloud.firestore {
              (!('phone' in data) || (data.phone is string && data.phone.size() <= 50));
     }
 
-    // Users Collection: Enforce Email Verification and Ownership
+    // Users Collection: Client profiles (each user can access only their own profile, plus admin access)
     match /users/{userId} {
-      // 1. Reading private profile requires verified email and ownership (or verified admin)
-      allow get: if isOwner(userId) || isAdmin();
-
-      // 2. Listing is strictly restricted to verified administrators
-      allow list: if isAdmin();
-
-      // 3. User creation during registration: allowed for authenticated caller creating own basic profile
       allow create: if (
         request.auth != null &&
-        request.auth.uid == userId &&
-        isValidUser(incoming()) &&
-        incoming().uid == request.auth.uid &&
-        incoming().role == 'customer' &&
-        incoming().status == 'active' &&
-        incoming().email == request.auth.token.email &&
-        !incoming().keys().hasAny(['isAdmin'])
-      ) || (
-        isAdmin() && isValidUser(incoming())
-      );
+        request.auth.uid == userId
+      ) || isAdmin();
 
-      // 4. Updating profile:
-      // Admins can update roles, status, and permissions.
-      // Verified owners can ONLY update permitted personal profile fields (displayName, phone, company, photoURL, updatedAt).
-      allow update: if (
-        isAdmin() && isValidUser(incoming()) && incoming().uid == existing().uid
-      ) || (
-        isOwner(userId) &&
-        isValidUser(incoming()) &&
-        incoming().uid == existing().uid &&
-        incoming().uid == request.auth.uid &&
-        incoming().role == existing().role &&
-        incoming().status == existing().status &&
-        incoming().email == existing().email &&
-        incoming().emailVerified == existing().emailVerified &&
-        (!('permissions' in existing()) || incoming().permissions == existing().permissions) &&
-        (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'company', 'photoURL', 'updatedAt'])
-      );
+      allow read, update: if (
+        request.auth != null &&
+        request.auth.uid == userId
+      ) || isAdmin();
 
-      // 5. Deletion restricted to verified administrator
-      allow delete: if isAdmin();
+      // Prevent accidental permanent deletion of user profiles.
+      allow delete: if false;
 
-      // 6. Subcollections under user profile require verified email and ownership (or verified admin)
+      // Subcollections under user profile
       match /{allSubcollections=**} {
-        allow get, list: if isOwner(userId) || isAdmin();
-        allow write: if isOwner(userId) || isAdmin();
+        allow get, list, write: if (request.auth != null && request.auth.uid == userId) || isAdmin();
       }
+    }
+
+    // Client-specific records, consultations, and other private data.
+    match /clientData/{documentId} {
+      allow create: if request.auth != null
+                    && incoming().ownerUid == request.auth.uid;
+
+      allow read, update: if request.auth != null
+                          && existing().ownerUid == request.auth.uid
+                          && incoming().ownerUid == request.auth.uid;
+
+      allow delete: if request.auth != null
+                    && existing().ownerUid == request.auth.uid;
     }
 
     // Admins Collection

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ConsultationRequest, NavigationPage } from '../../types';
 import { getUserConsultationRequests } from '../../services/dataService';
@@ -17,6 +17,8 @@ import {
   Loader2,
   ExternalLink,
   Save,
+  ChevronDown,
+  LogOut,
 } from 'lucide-react';
 
 interface AccountProfileViewProps {
@@ -39,6 +41,28 @@ export const AccountProfileView: React.FC<AccountProfileViewProps> = ({
 
   const [consultations, setConsultations] = useState<ConsultationRequest[]>([]);
   const [loadingConsultations, setLoadingConsultations] = useState(true);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close My Account sub menu on outside click or Escape
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     if (userProfile) {
@@ -155,21 +179,114 @@ export const AccountProfileView: React.FC<AccountProfileViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             {isAdmin && (
               <button
                 onClick={() => onNavigate('admin')}
-                className="px-4 py-2 text-xs font-semibold text-[#10283F] bg-[#D5A13A] hover:bg-[#e6b956] rounded-md transition-colors shadow flex items-center"
+                className="px-3.5 py-2 text-xs font-semibold text-[#10283F] bg-[#D5A13A] hover:bg-[#e6b956] rounded-md transition-colors shadow flex items-center"
               >
                 <Shield className="w-3.5 h-3.5 mr-1.5" />
-                Go to Admin CMS
+                Admin CMS
               </button>
             )}
+
             <button
               onClick={() => onOpenConsultation()}
-              className="px-4 py-2 text-xs font-semibold text-white bg-[#10283F] hover:bg-[#173859] rounded-md transition-colors"
+              className="px-3.5 py-2 text-xs font-semibold text-white bg-[#10283F] hover:bg-[#173859] rounded-md transition-colors flex items-center shadow-sm"
             >
-              Book New Consultation
+              <Calendar className="w-3.5 h-3.5 mr-1.5 text-[#D5A13A]" />
+              Book Consultation
+            </button>
+
+            {/* My Account Sub Menu Dropdown */}
+            <div className="relative" ref={accountMenuRef}>
+              <button
+                onClick={() => setAccountMenuOpen(!accountMenuOpen)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md transition-colors flex items-center space-x-1.5 shadow-sm cursor-pointer"
+                aria-expanded={accountMenuOpen}
+                aria-label="My Account Sub Menu"
+              >
+                <User className="w-3.5 h-3.5 text-[#D5A13A]" />
+                <span>My Account</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${accountMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {accountMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-30 text-slate-700 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-4 py-2 border-b border-slate-100">
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">My Account</p>
+                    <p className="text-xs font-semibold text-[#10283F] truncate">{currentUser?.email}</p>
+                    <p className="text-[10px] text-slate-500 capitalize mt-0.5">Role: {userProfile?.role || 'Customer'}</p>
+                  </div>
+
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        const formEl = document.getElementById('profile-form-section');
+                        if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs flex items-center hover:bg-slate-50 font-medium text-slate-700"
+                    >
+                      <User className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                      Edit Corporate Profile
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        const listEl = document.getElementById('consultations-list-section');
+                        if (listEl) listEl.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs flex items-center hover:bg-slate-50 font-medium text-slate-700"
+                    >
+                      <FileText className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                      My Consultations ({consultations.length})
+                    </button>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          onNavigate('admin');
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs flex items-center hover:bg-slate-50 font-semibold text-[#b88528]"
+                      >
+                        <Shield className="w-3.5 h-3.5 mr-2" />
+                        Admin Dashboard & CMS
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="border-t border-slate-100 my-1" />
+
+                  {/* Sign Out sub menu item */}
+                  <button
+                    onClick={async () => {
+                      setAccountMenuOpen(false);
+                      await logout();
+                      onNavigate('home');
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs flex items-center text-rose-600 hover:bg-rose-50 font-semibold transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5 mr-2 text-rose-500" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Direct Sign Out Button */}
+            <button
+              onClick={async () => {
+                await logout();
+                onNavigate('home');
+              }}
+              className="px-3.5 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-md transition-colors flex items-center space-x-1.5 shadow-sm cursor-pointer"
+              title="Sign Out from your account"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-500" />
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
@@ -177,7 +294,7 @@ export const AccountProfileView: React.FC<AccountProfileViewProps> = ({
         {/* Two-Column Grid: Profile Editor & Consultation Tracker */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Permitted Profile Information */}
-          <div className="lg:col-span-5 bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+          <div id="profile-form-section" className="lg:col-span-5 bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
             <div>
               <h3 className="font-serif text-lg font-bold text-[#10283F]">
                 Corporate Profile
@@ -287,7 +404,7 @@ export const AccountProfileView: React.FC<AccountProfileViewProps> = ({
           </div>
 
           {/* Right Column: Customer Consultation Requests Tracking */}
-          <div className="lg:col-span-7 bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+          <div id="consultations-list-section" className="lg:col-span-7 bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-serif text-lg font-bold text-[#10283F]">

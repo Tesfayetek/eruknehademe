@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Compass,
   Lock,
+  LogIn,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -41,10 +42,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { currentUser, userProfile, isAdmin, isEmailVerified, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [microMenuOpen, setMicroMenuOpen] = useState(false);
   const [activeDesktopDropdown, setActiveDesktopDropdown] = useState<string | null>(null);
   const [expandedMobileParentIds, setExpandedMobileParentIds] = useState<Record<string, boolean>>({});
   const desktopNavRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const microMenuRef = useRef<HTMLDivElement>(null);
 
   // Close desktop dropdowns on outside click or Escape key
   useEffect(() => {
@@ -55,12 +58,16 @@ export const Navbar: React.FC<NavbarProps> = ({
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserDropdownOpen(false);
       }
+      if (microMenuRef.current && !microMenuRef.current.contains(event.target as Node)) {
+        setMicroMenuOpen(false);
+      }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setActiveDesktopDropdown(null);
         setUserDropdownOpen(false);
+        setMicroMenuOpen(false);
         setMobileMenuOpen(false);
       }
     };
@@ -75,6 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   // 1. Separate Root Items and Child Submenus (using DEFAULT_NAVIGATION_ITEMS as rich canonical fallback)
   const validItems = useMemo(() => {
+    let rawList: NavigationItem[] = [];
     if (navigationItems && navigationItems.length > 0) {
       // If navigationItems from database is missing canonical roots or children, merge them in
       const existingIds = new Set(navigationItems.map((i) => i.id));
@@ -84,9 +92,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           merged.push(def);
         }
       }
-      return merged;
+      rawList = merged;
+    } else {
+      rawList = DEFAULT_NAVIGATION_ITEMS;
     }
-    return DEFAULT_NAVIGATION_ITEMS;
+
+    // Exclude "Insights" and any of its child submenus from the header menu for all accounts
+    return rawList.filter(
+      (item) =>
+        item.id !== 'nav-insights' &&
+        item.parentId !== 'nav-insights' &&
+        item.slug !== 'insights' &&
+        item.page !== 'insights' &&
+        item.label?.trim().toLowerCase() !== 'insights'
+    );
   }, [navigationItems]);
 
   // Desktop active items
@@ -206,6 +225,75 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Shield className="w-2.5 h-2.5 mr-1" />
                 Admin
               </span>
+            )}
+            {currentUser ? (
+              <div className="relative" ref={microMenuRef}>
+                <button
+                  onClick={() => setMicroMenuOpen(!microMenuOpen)}
+                  className="inline-flex items-center text-slate-300 hover:text-[#D5A13A] transition-colors py-0.5 cursor-pointer"
+                  aria-expanded={microMenuOpen}
+                  aria-label="My Account Menu"
+                >
+                  <UserIcon className="w-3 h-3 mr-1 text-[#D5A13A]" />
+                  <span>My Account</span>
+                  <ChevronDown className={`w-2.5 h-2.5 ml-1 text-slate-400 transition-transform ${microMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {microMenuOpen && (
+                  <div className="absolute right-0 mt-1.5 w-52 bg-[#0e2133] rounded-md shadow-2xl border border-slate-700 py-1.5 z-50 text-slate-200 animate-in fade-in slide-in-from-top-1 text-xs">
+                    <div className="px-3 py-1.5 border-b border-slate-800">
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase">My Account</p>
+                      <p className="text-[11px] font-medium text-white truncate">{currentUser.email}</p>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setMicroMenuOpen(false);
+                        onNavigate('account');
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-xs flex items-center hover:bg-white/5"
+                    >
+                      <UserIcon className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                      Client Profile & Consultations
+                    </button>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          setMicroMenuOpen(false);
+                          onNavigate('admin');
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs flex items-center text-[#D5A13A] hover:bg-white/5 font-semibold"
+                      >
+                        <Shield className="w-3.5 h-3.5 mr-2" />
+                        Admin CMS
+                      </button>
+                    )}
+
+                    <div className="border-t border-slate-800 my-1" />
+
+                    <button
+                      onClick={async () => {
+                        setMicroMenuOpen(false);
+                        await logout();
+                        onNavigate('home');
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-xs flex items-center text-rose-400 hover:bg-rose-500/10 font-semibold"
+                    >
+                      <LogOut className="w-3.5 h-3.5 mr-2" />
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => onNavigate('login')}
+                className="inline-flex items-center text-slate-300 hover:text-[#D5A13A] transition-colors font-medium"
+              >
+                <LogIn className="w-3 h-3 mr-1 text-[#D5A13A]" />
+                <span>Login</span>
+              </button>
             )}
           </div>
         </div>
@@ -370,16 +458,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Action CTAs & Auth Dropdown (Desktop >= 640px) */}
           <div className="hidden sm:flex items-center space-x-2 sm:space-x-3 shrink-0">
-            {/* Book Consultation Button */}
-            <button
-              onClick={() => onOpenConsultation()}
-              className="group relative inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold text-[#10283F] bg-gradient-to-r from-[#e6b956] via-[#D5A13A] to-[#c4912e] rounded-md shadow-md hover:shadow-[#D5A13A]/25 transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap"
-            >
-              <Calendar className="w-3.5 h-3.5 mr-1.5 text-[#10283F]" />
-              <span>{consultationBtnText}</span>
-            </button>
-
-            {/* Auth status & actions */}
+            {/* Login button next to header menu / or User Account Menu when logged in */}
             {currentUser ? (
               <div ref={userMenuRef} className="relative">
                 <button
@@ -461,15 +540,44 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <button
                 onClick={() => onNavigate('login')}
-                className="px-3 py-1.5 text-xs font-medium text-slate-200 hover:text-white bg-[#173859]/70 hover:bg-[#173859] border border-slate-700 rounded-md transition-colors whitespace-nowrap"
+                className="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-white bg-[#173859] hover:bg-[#1f4b75] hover:text-[#D5A13A] border border-slate-600/80 rounded-md transition-all shadow-sm whitespace-nowrap cursor-pointer"
+                title="Login to Client Account"
               >
-                Sign In
+                <LogIn className="w-3.5 h-3.5 mr-1.5 text-[#D5A13A]" />
+                <span>Login</span>
               </button>
             )}
+
+            {/* Book Consultation Button */}
+            <button
+              onClick={() => onOpenConsultation()}
+              className="group relative inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold text-[#10283F] bg-gradient-to-r from-[#e6b956] via-[#D5A13A] to-[#c4912e] rounded-md shadow-md hover:shadow-[#D5A13A]/25 transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5 mr-1.5 text-[#10283F]" />
+              <span>{consultationBtnText}</span>
+            </button>
           </div>
 
           {/* Mobile & Tablet Control Buttons (< 1024px) */}
           <div className="flex items-center lg:hidden space-x-2">
+            {!currentUser ? (
+              <button
+                onClick={() => onNavigate('login')}
+                className="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold text-white bg-[#173859] hover:bg-[#1f4b75] border border-slate-600 rounded shadow-sm whitespace-nowrap"
+                aria-label="Login"
+              >
+                <LogIn className="w-3.5 h-3.5 mr-1 text-[#D5A13A]" />
+                <span>Login</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => onNavigate('account')}
+                className="p-1.5 rounded bg-[#173859] text-[#D5A13A] border border-slate-700"
+                aria-label="My Account"
+              >
+                <UserIcon className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => onOpenConsultation()}
               className="px-2.5 py-1.5 text-xs font-semibold text-[#10283F] bg-[#D5A13A] rounded shadow sm:hidden"
@@ -642,9 +750,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setMobileMenuOpen(false);
                   onNavigate('login');
                 }}
-                className="w-full py-2 px-4 text-center text-xs font-medium text-slate-200 bg-[#173859] hover:bg-[#1f4b75] rounded-md transition-colors"
+                className="w-full py-2.5 px-4 text-center text-xs font-semibold text-white bg-[#173859] hover:bg-[#1f4b75] hover:text-[#D5A13A] rounded-md transition-colors flex items-center justify-center space-x-1.5 border border-slate-700"
               >
-                Sign In to Client Portal
+                <LogIn className="w-3.5 h-3.5 text-[#D5A13A]" />
+                <span>Login to Client Portal</span>
               </button>
             )}
           </div>

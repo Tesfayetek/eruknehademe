@@ -278,6 +278,18 @@
         "createdAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["action", "entityType", "performedBy", "createdAt"]
+    },
+    "ClientData": {
+      "title": "ClientData",
+      "description": "Client-specific records, consultations, and private records",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "content": { "type": "string", "maxLength": 5000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["ownerUid"]
     }
   },
   "firestore": {
@@ -356,6 +368,10 @@
     "/auditLogs/{logId}": {
       "schema": { "$ref": "#/entities/AuditLog" },
       "description": "Audit trail of administrative modifications"
+    },
+    "/clientData/{documentId}": {
+      "schema": { "$ref": "#/entities/ClientData" },
+      "description": "Client-specific records, consultations, and private data"
     }
   }
 }

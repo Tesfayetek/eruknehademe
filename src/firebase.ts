@@ -6,8 +6,10 @@ import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
-// CRITICAL: Must pass firestoreDatabaseId for custom provisioned databases
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firestore: supports default database as well as custom named databases
+export const db = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)')
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 

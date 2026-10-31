@@ -76,7 +76,6 @@ import {
 } from '../../services/dataService';
 import { MediaUploader } from './MediaUploader';
 import { ExecutiveLetterGenerator } from './ExecutiveLetterGenerator';
-import { SectionBuilder } from './SectionBuilder';
 import { NavigationManager } from './NavigationManager';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { UserManagementSection } from './UserManagementSection';
@@ -568,16 +567,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
 
                   <button
-                    onClick={() => setActiveTab('builder')}
-                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
-                      activeTab === 'builder' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
-                    }`}
-                  >
-                    <Layers className="w-3 h-3 text-[#D5A13A]" />
-                    <span>Page Management</span>
-                  </button>
-
-                  <button
                     onClick={() => setActiveTab('footer')}
                     className={`w-full text-left px-2.5 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
                       activeTab === 'footer' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
@@ -793,23 +782,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('builder')}
-              className={`w-full text-left px-3 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
-                activeTab === 'builder' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>17. Page & Section Builder</span>
-            </button>
-
-            <button
               onClick={() => setActiveTab('seo')}
               className={`w-full text-left px-3 py-1.5 text-xs rounded flex items-center space-x-2 transition-colors ${
                 activeTab === 'seo' ? 'bg-[#D5A13A] text-[#10283F] font-bold' : 'hover:bg-white/5'
               }`}
             >
               <Share2 className="w-3.5 h-3.5" />
-              <span>18. SEO & Social Sharing</span>
+              <span>17. SEO & Social Sharing</span>
             </button>
 
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pt-3 pb-1">
@@ -956,7 +935,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {/* Quick Jump Buttons to All 18 Modules */}
                   <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                     <h3 className="font-serif text-base font-bold text-[#10283F]">
-                      Quick Access: 18 Content Management Modules
+                      Quick Access: 17 Content Management Modules
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
                       {[
@@ -976,8 +955,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         { tab: 'articles', label: '14. Blog & Articles' },
                         { tab: 'footer', label: '15. Footer CMS' },
                         { tab: 'media', label: '16. Media Library' },
-                        { tab: 'builder', label: '17. Section Builder' },
-                        { tab: 'seo', label: '18. SEO & Social' },
+                        { tab: 'seo', label: '17. SEO & Social' },
                       ].map((mod) => (
                         <button
                           key={mod.tab}
@@ -2658,21 +2636,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {/* MODULE 17: PAGE AND SECTION MANAGEMENT */}
-              {activeTab === 'builder' && (
-                <SectionBuilder
-                  sections={sections}
-                  onRefresh={loadAllAdminData}
-                  showNotice={showNotice}
-                />
-              )}
-
-              {/* MODULE 18: SEO AND SOCIAL SHARING SETTINGS */}
+              {/* MODULE 17: SEO AND SOCIAL SHARING SETTINGS */}
               {activeTab === 'seo' && settings && (
                 <div className="space-y-6">
                   <div>
                     <h2 className="font-serif text-2xl font-bold text-[#10283F]">
-                      Module 18: SEO & Social Sharing Settings
+                      Module 17: SEO & Social Sharing Settings
                     </h2>
                     <p className="text-xs text-slate-500">
                       Configure OpenGraph preview cards, default meta description, and page titles.

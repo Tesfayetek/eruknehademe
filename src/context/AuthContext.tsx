@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import {
   User as FirebaseUser,
   onAuthStateChanged,
@@ -46,6 +46,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [roles, setRoles] = useState<RoleDefinition[]>(DEFAULT_SYSTEM_ROLES);
   const [loading, setLoading] = useState<boolean>(true);
   const [lastVerificationSent, setLastVerificationSent] = useState<number>(0);
+  const isRegisteringRef = useRef<boolean>(false);
 
   const fetchRoles = async () => {
     try {
@@ -153,6 +154,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchRoles();
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      // If registration is actively writing user profile, do not interfere or prematurely sign out
+      if (isRegisteringRef.current) {
+        return;
+      }
       if (fbUser) {
         try {
           // Always reload to get fresh verification status from Firebase Auth
@@ -262,47 +267,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error('Your account has been deactivated or disabled by an administrator. Please contact support.');
     }
 
-    return { verified: true, email: freshUser.email || email };
+    const normalizedEmail = email.trim().toLowerCase();
+    return { verified: true, email: freshUser.email || normalizedEmail };
   };
 
   const registerWithEmail = async (name: string, email: string, pass: string): Promise<{ email: string }> => {
-    // 1. Create user with Firebase Auth
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    const fbUser = cred.user;
-
-    // 2. Send verification email immediately
+    isRegisteringRef.current = true;
     try {
-      await sendEmailVerification(fbUser);
-      setLastVerificationSent(Date.now());
-    } catch (e) {
-      console.warn('Verification email dispatch notice:', e);
+      const normalizedEmail = email.trim().toLowerCase();
+      // 1. Create user with Firebase Auth
+      const cred = await createUserWithEmailAndPassword(auth, normalizedEmail, pass);
+      const fbUser = cred.user;
+
+      // 2. Send verification email immediately
+      try {
+        await sendEmailVerification(fbUser);
+        setLastVerificationSent(Date.now());
+      } catch (e) {
+        console.warn('Verification email dispatch notice:', e);
+      }
+
+      // 3. New users must receive ONLY the default registered-user role (customer). Never grant administrator privileges during public registration.
+      const newProfile: UserProfile = {
+        uid: fbUser.uid,
+        email: normalizedEmail,
+        displayName: name.trim(),
+        role: 'customer',
+        status: 'active',
+        emailVerified: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      try {
+        await setDoc(doc(db, 'users', fbUser.uid), newProfile);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, `users/${fbUser.uid}`);
+      }
+
+      // 4. Immediately sign out the unverified newly registered user
+      await signOut(auth);
+      setCurrentUser(null);
+      setUserProfile(null);
+      setIsEmailVerified(false);
+
+      return { email: normalizedEmail };
+    } finally {
+      isRegisteringRef.current = false;
     }
-
-    // 3. New users must receive ONLY the default registered-user role (customer). Never grant administrator privileges during public registration.
-    const newProfile: UserProfile = {
-      uid: fbUser.uid,
-      email: fbUser.email || email,
-      displayName: name,
-      role: 'customer',
-      status: 'active',
-      emailVerified: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    try {
-      await setDoc(doc(db, 'users', fbUser.uid), newProfile);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `users/${fbUser.uid}`);
-    }
-
-    // 4. Immediately sign out the unverified newly registered user
-    await signOut(auth);
-    setCurrentUser(null);
-    setUserProfile(null);
-    setIsEmailVerified(false);
-
-    return { email: fbUser.email || email };
   };
 
   const loginWithGoogle = async () => {
