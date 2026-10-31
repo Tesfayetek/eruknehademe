@@ -57,3 +57,10 @@
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
 }
+
+.footer-copyright {
+  width: 100%;
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}

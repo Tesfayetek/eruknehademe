@@ -331,7 +331,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       Certified Management Consulting Frameworks
                     </h4>
                     <p className="text-xs text-slate-600">
-                      We operate strictly under internationally accepted CMC consulting ethics and IFRS financial accounting rigor.
+                      We operate strictly under internationally accepted consulting ethics and financial accounting rigor.
                     </p>
                   </div>
                 </div>

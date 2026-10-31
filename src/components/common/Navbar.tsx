@@ -201,7 +201,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </a>
           </div>
           <div className="flex items-center space-x-3 text-slate-400 text-[11px]">
-            <span className="hidden sm:inline">CMC Standards &bull; IFRS Advisory</span>
             {isAdmin && (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-[#D5A13A]/20 text-[#D5A13A] border border-[#D5A13A]/30">
                 <Shield className="w-2.5 h-2.5 mr-1" />

@@ -4,13 +4,11 @@ import {
   Phone,
   Mail,
   Clock,
-  Shield,
   ArrowRight,
   Linkedin,
   Twitter,
   Send,
   Facebook,
-  Github,
   ExternalLink,
 } from 'lucide-react';
 import { NavigationPage, SiteSettings, NavigationItem } from '../../types';
@@ -260,23 +258,10 @@ export const Footer: React.FC<FooterProps> = ({
 
       {/* Bottom Bar */}
       <div className="border-t border-slate-800/80 bg-[#081420] py-6 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p>{copyrightText}</p>
-          <div className="flex items-center space-x-6">
-            <button onClick={() => onNavigate('about')} className="hover:text-slate-400 transition-colors">
-              Professional Ethics
-            </button>
-            <button onClick={() => onNavigate('contact')} className="hover:text-slate-400 transition-colors">
-              Confidentiality
-            </button>
-            <button
-              onClick={() => onNavigate('admin')}
-              className="inline-flex items-center text-slate-500 hover:text-[#D5A13A] transition-colors"
-            >
-              <Shield className="w-3 h-3 mr-1" />
-              Administrative CMS
-            </button>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center items-center">
+          <p className="footer-copyright w-full text-center mx-auto text-slate-400">
+            {copyrightText}
+          </p>
         </div>
       </div>
     </footer>

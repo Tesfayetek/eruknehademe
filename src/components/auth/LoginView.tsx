@@ -386,13 +386,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 Create an Account
               </button>
             </div>
-
-            {/* Admin hint */}
-            <div className="pt-4 border-t border-slate-100 text-center">
-              <p className="text-[11px] text-slate-400">
-                System Administrator: <span className="text-slate-600 font-mono">arabsafashion@gmail.com</span>
-              </p>
-            </div>
           </>
         )}
       </div>
